@@ -89,3 +89,4 @@ Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's env
 - Registry checks (Kenya BRS, Ghana ORC) are manual; the tier records the method used.
 - Trade-rules assistant (AfCFTA Q&A) is the next module — reuse the Kenya MSME Advisor RAG pipeline.
 - English only.
+# oxl
