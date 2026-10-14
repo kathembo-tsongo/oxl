@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #1C2B4A;
+  --color-terra: #A3472A;
+  --color-leaf: #2E6B45;
+  --color-cream: #F7F4EE;
+  --color-line: #E2DDD3;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
+}
+
+body { @apply bg-cream text-navy font-sans antialiased; }
+h1, h2, h3 { @apply font-serif; }
+
+@layer components {
+.card  { @apply bg-white border border-line rounded-xl p-5; }
+.btn   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50; }
+.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 bg-navy text-white hover:bg-navy/90; }
+.btn-ghost   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 border border-line bg-white hover:bg-cream; }
+.input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy/30; }
+.label { @apply block text-xs font-medium uppercase tracking-wide text-navy/60 mb-1; }
+}
