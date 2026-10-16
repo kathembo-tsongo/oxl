@@ -54,13 +54,18 @@ export default function Documents() {
   )
 }
 
+// AI output can come back in any shape, so normalise before rendering
+const txt = (v) => (v == null || v === '' ? '—' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v))
+const list = (v) => (Array.isArray(v) ? v.map(txt) : v ? [txt(v)] : [])
+
 export function DocCard({ d, children }) {
-  const x = d.extracted
+  const x = d.extracted && typeof d.extracted === 'object' ? d.extracted : null
+  const flags = list(x?.red_flags)
   const status = { pending: 'text-amber-700', approved: 'text-leaf', rejected: 'text-red-700' }[d.review_status]
   return (
     <div className="card">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="font-medium">{DOC_LABEL[d.doc_type]}</div>
+        <div className="font-medium">{DOC_LABEL[d.doc_type] ?? d.doc_type}</div>
         <div className="text-sm text-navy/60">{d.file_name}</div>
         <div className={`ml-auto text-xs font-medium ${status}`}>Review: {d.review_status}</div>
         <div className="text-xs text-navy/50">AI: {d.extraction_status}</div>
@@ -68,12 +73,13 @@ export function DocCard({ d, children }) {
       {x && (
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
           {[['Company', x.company_name], ['Number', x.registration_or_licence_no], ['Issuer', x.issuing_authority], ['Issued', x.issue_date], ['Expires', x.expiry_date], ['Confidence', x.confidence]]
-            .map(([k, v]) => <div key={k}><dt className="text-navy/50">{k}</dt><dd>{v ?? '—'}</dd></div>)}
+            .map(([k, v]) => <div key={k}><dt className="text-navy/50">{k}</dt><dd>{txt(v)}</dd></div>)}
         </dl>
       )}
-      {x?.red_flags?.length > 0 && <p className="mt-2 text-xs text-red-700">⚑ {x.red_flags.join(' · ')}</p>}
-      {x?.is_expired && <p className="mt-1 text-xs text-red-700">⚑ Document appears expired</p>}
-      {d.review_notes && <p className="mt-2 text-xs text-navy/60">Note: {d.review_notes}</p>}
+      {flags.length > 0 && <p className="mt-2 text-xs text-red-700">⚑ {flags.join(' · ')}</p>}
+      {x?.is_expired === true && <p className="mt-1 text-xs text-red-700">⚑ Document appears expired</p>}
+      {d.extraction_status === 'failed' && <p className="mt-2 text-xs text-red-700">AI reading failed{d.review_notes ? `: ${txt(d.review_notes)}` : ''}</p>}
+      {d.extraction_status !== 'failed' && d.review_notes && <p className="mt-2 text-xs text-navy/60">Note: {txt(d.review_notes)}</p>}
       {children}
     </div>
   )

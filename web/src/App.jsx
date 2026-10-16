@@ -52,8 +52,8 @@ export default function App() {
             <Route path="/" element={isAdmin && !org ? <Navigate to="/admin" /> : <Dashboard />} />
             <Route path="/directory" element={<Directory />} />
             <Route path="/report/:orgId" element={<RiskReport />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/finance" element={<Finance />} />
+            <Route path="/documents" element={org ? <Documents /> : <Navigate to="/admin" />} />
+            <Route path="/finance" element={org ? <Finance /> : <Navigate to="/admin" />} />
             {isAdmin && <Route path="/admin" element={<Admin />} />}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
