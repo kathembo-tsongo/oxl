@@ -2,9 +2,11 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../App'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { TierBadge } from './Badges'
+import { useInstallPrompt } from '../pwa'
 
 export default function Layout({ children }) {
   const { org, isAdmin } = useAuth()
+  const [canInstall, install] = useInstallPrompt()
   const trader = org && ['exporter', 'importer'].includes(org.role)
   const link = ({ isActive }) => `px-3 py-1.5 rounded-md text-sm ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white'}`
   return (
@@ -25,6 +27,7 @@ export default function Layout({ children }) {
           <div className="ml-auto flex items-center gap-3 text-sm">
             {org && <span className="hidden sm:inline text-white/80">{org.name} · {ROLE_LABEL[org.role]}</span>}
             {org && <TierBadge tier={org.verification_tier} dark />}
+            {canInstall && <button className="rounded-md bg-terra px-3 py-1 text-white hover:bg-terra/90" onClick={install}>Install app</button>}
             <button className="text-white/70 hover:text-white" onClick={() => supabase.auth.signOut()}>Sign out</button>
           </div>
         </div>
