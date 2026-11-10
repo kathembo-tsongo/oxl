@@ -164,6 +164,7 @@ function Matches({ kind, listing, actingOrg }) {
   const [rows, setRows] = useState(null)
   const [sent, setSent] = useState({})
   const [err, setErr] = useState(null)
+  const [showOut, setShowOut] = useState(false)
   useEffect(() => {
     const rpc = kind === 'offer' ? supabase.rpc('match_offer', { p_offer_id: listing.id }) : supabase.rpc('match_request', { p_request_id: listing.id })
     rpc.then(({ data, error }) => { if (error) setErr(error.message); setRows(data ?? []) })
@@ -172,28 +173,45 @@ function Matches({ kind, listing, actingOrg }) {
   }, [listing.id, kind])
 
   async function express(m) {
+    setErr(null)
     const otherId = kind === 'offer' ? m.request_id : m.offer_id
-    const base = { initiated_by: myOrg.id, match_score: m.score, ...(agentActing ? { agent_org_id: myOrg.id } : {}) }
-    const row = kind === 'offer'
-      ? { ...base, offer_id: listing.id, request_id: otherId }
-      : { ...base, offer_id: otherId, request_id: listing.id }
+    let fee = null
+    if (agentActing) {
+      const { data } = await supabase.from('agent_profiles').select('typical_fee_note').eq('org_id', myOrg.id).maybeSingle()
+      fee = data?.typical_fee_note ?? 'Fee to be agreed'
+    }
+    const base = { initiated_by: myOrg.id, match_score: m.score, ...(agentActing ? { agent_org_id: myOrg.id, agent_fee_note: fee } : {}) }
+    const row = kind === 'offer' ? { ...base, offer_id: listing.id, request_id: otherId } : { ...base, offer_id: otherId, request_id: listing.id }
     const { error } = await supabase.from('interests').insert(row)
     if (error) setErr(error.message); else setSent({ ...sent, [otherId]: true })
   }
 
   if (!rows) return <p className="mt-4 text-sm text-navy/60">Matching…</p>
+  const pass = rows.filter((m) => m.passed)
+  const out = rows.filter((m) => !m.passed)
+  // Count why candidates were left out (by the first check each one failed), without naming them
+  const reasons = {}
+  for (const m of out) { const c = (m.checks ?? []).find((x) => !x.passed); if (c) reasons[c.check] = (reasons[c.check] ?? 0) + 1 }
+  const other = kind === 'offer' ? 'buyers' : 'sellers'
+
   return (
     <div className="mt-5 space-y-3 border-t border-line pt-4">
       {err && <p className="text-sm text-red-700">{err}</p>}
+      <p className="text-sm text-navy/70">
+        <b>{pass.length}</b> of {rows.length} {other} with this commodity pass all checks{out.length > 0 && <>; {out.length} left out (
+        {Object.entries(reasons).map(([k, n], i) => <span key={k}>{i ? ', ' : ''}{n} {k.toLowerCase().replace('ready in time', 'not ready in time').replace('allowed at destination', 'missing a required certificate').replace('enough quantity', 'too small').replace('right product', 'different grade').replace('safe to connect', 'not eligible')}</span>)})</>}.
+      </p>
       {rows.length === 0 && <p className="text-sm text-navy/60">No open {kind === 'offer' ? 'requests' : 'offers'} for this commodity yet.</p>}
-      {rows.map((m) => {
+      {pass.map((m) => {
         const otherId = kind === 'offer' ? m.request_id : m.offer_id
         return (
           <div key={otherId} className="grid gap-4 rounded-lg bg-cream p-4 md:grid-cols-[auto_14rem_1fr_auto]">
             <ScorePill score={m.score} />
-            <div>
+            <div className="min-w-0">
               <div className="font-medium">{m.org_name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-navy/60">{m.org_country} <TierBadge tier={m.verification_tier} /> <DemoBadge show={m.is_demo} /></div>
+              {m.est_arrival && <div className="mt-2 text-xs"><span className="text-navy/50">Est. arrival </span><b>{fmtDate(m.est_arrival)}</b></div>}
+              <ul className="mt-2 space-y-0.5 text-xs text-leaf">{(m.checks ?? []).map((c) => <li key={c.check}>✓ {c.check}</li>)}</ul>
             </div>
             <ScoreFactors factors={m.factors} />
             <div className="flex flex-col gap-2">
@@ -203,45 +221,106 @@ function Matches({ kind, listing, actingOrg }) {
           </div>
         )
       })}
+      {out.length > 0 && (
+        <div className="text-sm">
+          <button className="text-navy/60 underline" onClick={() => setShowOut(!showOut)}>{showOut ? 'Hide' : 'Why were some left out?'}</button>
+          {showOut && (
+            <ul className="mt-2 space-y-1 text-xs text-navy/70">
+              {out.map((m, i) => { const c = (m.checks ?? []).find((x) => !x.passed); return <li key={i}>✗ <b>{c?.check}:</b> {c?.detail}</li> })}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
+const STATUS_STYLE = {
+  proposed: 'bg-amber-100 text-amber-800', accepted: 'bg-sky-100 text-sky-800', in_transit: 'bg-indigo-100 text-indigo-800',
+  delivered: 'bg-emerald-100 text-emerald-800', completed: 'bg-leaf text-white', declined: 'bg-gray-100 text-navy/50', cancelled: 'bg-gray-100 text-navy/50',
+}
+const STATUS_LABEL = { proposed: 'Proposed', accepted: 'Accepted', in_transit: 'In transit', delivered: 'Delivered', completed: 'Completed', declined: 'Declined', cancelled: 'Cancelled' }
+
+// Deal pipeline: proposed → accepted → in transit → delivered → completed, with ratings after delivery
 function Interests({ kind, actingOrg }) {
   const org = actingOrg
   const [rows, setRows] = useState([])
-  const load = () => supabase.from('interests')
-    .select('*, offers(id, grade, quantity_tonnes, org_id, organisations(name), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(name))')
-    .order('created_at', { ascending: false }).then(({ data }) => setRows(data ?? []))
-  useEffect(() => { load() }, []) // eslint-disable-line
-  async function setStatus(id, status) { await supabase.from('interests').update({ status }).eq('id', id); load() }
+  const [rated, setRated] = useState({})
+  const [rating, setRating] = useState(null)
+  const [err, setErr] = useState(null)
+  const load = () => {
+    supabase.from('interests')
+      .select('*, agent:organisations!interests_agent_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name))')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setRows((data ?? []).filter((i) => i.offers?.org_id === org.id || i.requests?.org_id === org.id)))
+    supabase.from('ratings').select('deal_id').eq('rater_org_id', org.id).then(({ data }) => setRated(Object.fromEntries((data ?? []).map((r) => [r.deal_id, true]))))
+  }
+  useEffect(() => { load() }, [org.id]) // eslint-disable-line
+  async function act(id, action) {
+    setErr(null)
+    const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action })
+    if (error) setErr(error.message); load()
+  }
   if (!rows.length) return null
   return (
     <div className="card">
-      <h3 className="text-lg font-semibold">Deal pipeline</h3>
-      <table className="mt-3 w-full text-sm">
-        <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="py-1">Counterparty</th><th>Commodity</th><th>Score</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          {rows.map((i) => {
-            const other = kind === 'offer' ? i.requests?.organisations?.name : i.offers?.organisations?.name
-            const incoming = i.initiated_by !== org.id
-            return (
-              <tr key={i.id} className="border-t border-line">
-                <td className="py-2">{other} {incoming && <span className="ml-1 text-xs text-terra">incoming</span>}</td>
-                <td>{i.offers?.commodities?.name}</td>
-                <td className="tabular-nums">{i.match_score}</td>
-                <td>{i.status}</td>
-                <td className="space-x-2 text-right">
-                  {incoming && i.status === 'proposed' && <>
-                    <button className="text-leaf" onClick={() => setStatus(i.id, 'accepted')}>Accept</button>
-                    <button className="text-navy/50" onClick={() => setStatus(i.id, 'declined')}>Decline</button></>}
-                  {i.status === 'accepted' && <button className="text-leaf" onClick={() => setStatus(i.id, 'completed')}>Mark trade completed</button>}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <h3 className="text-lg font-semibold">Deals</h3>
+      {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[46rem] text-sm">
+          <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="py-1">Counterparty</th><th>Commodity</th><th>Score</th><th>Agent and fee</th><th>Est. arrival</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {rows.map((i) => {
+              const amSeller = i.offers?.org_id === org.id
+              const other = amSeller ? i.requests?.organisations : i.offers?.organisations
+              const incoming = i.initiated_by !== org.id && i.agent_org_id !== org.id
+              return (
+                <tr key={i.id} className="border-t border-line align-top">
+                  <td className="py-2">{other?.name} {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">needs your reply</span>}</td>
+                  <td>{i.offers?.commodities?.name}</td>
+                  <td className="tabular-nums">{i.match_score ?? '—'}</td>
+                  <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span></> : '—'}</td>
+                  <td className="text-xs">{fmtDate(i.estimated_arrival) ?? '—'}</td>
+                  <td><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[i.status]}`}>{STATUS_LABEL[i.status] ?? i.status}</span></td>
+                  <td className="space-x-2 whitespace-nowrap text-right">
+                    {i.status === 'proposed' && incoming && <>
+                      <button className="text-leaf" onClick={() => act(i.id, 'accept')}>Accept</button>
+                      <button className="text-navy/50" onClick={() => act(i.id, 'decline')}>Decline</button></>}
+                    {i.status === 'accepted' && amSeller && <button className="text-leaf" onClick={() => act(i.id, 'ship')}>Mark shipped</button>}
+                    {i.status === 'in_transit' && !amSeller && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
+                    {i.status === 'delivered' && amSeller && !i.seller_confirmed_delivery_at && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
+                    {['delivered', 'completed'].includes(i.status) && !rated[i.id] && <button className="text-terra" onClick={() => setRating({ deal: i, rated: other })}>Rate {amSeller ? 'buyer' : 'seller'}</button>}
+                    {['proposed', 'accepted'].includes(i.status) && <button className="text-navy/40" onClick={() => act(i.id, 'cancel')}>Cancel</button>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rating && <RatingForm org={org} {...rating} onDone={() => { setRating(null); load() }} />}
     </div>
+  )
+}
+
+function RatingForm({ org, deal, rated, onDone }) {
+  const [f, setF] = useState({ on_time: true, quality: true, stars: 5, comment: '' })
+  const [err, setErr] = useState(null)
+  async function save(e) {
+    e.preventDefault(); setErr(null)
+    const { error } = await supabase.from('ratings').insert({ deal_id: deal.id, rater_org_id: org.id, rated_org_id: rated.id,
+      on_time: f.on_time, quality_as_described: f.quality, stars: Number(f.stars), comment: f.comment || null })
+    if (error) setErr(error.message); else onDone()
+  }
+  return (
+    <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-cream p-4 sm:grid-cols-4">
+      <p className="sm:col-span-4 font-medium">Rate {rated?.name}</p>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.on_time} onChange={(e) => setF({ ...f, on_time: e.target.checked })} /> Delivered on time</label>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.quality} onChange={(e) => setF({ ...f, quality: e.target.checked })} /> As described</label>
+      <div><label className="label">Overall</label><select className="input" value={f.stars} onChange={(e) => setF({ ...f, stars: e.target.value })}>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}</option>)}</select></div>
+      <div className="sm:col-span-4"><label className="label">Comment (optional)</label><input className="input" value={f.comment} onChange={(e) => setF({ ...f, comment: e.target.value })} /></div>
+      {err && <p className="sm:col-span-4 text-sm text-red-700">{err}</p>}
+      <div className="sm:col-span-4 flex gap-2"><button className="btn-primary">Save rating</button><button type="button" className="btn-ghost" onClick={onDone}>Cancel</button></div>
+    </form>
   )
 }

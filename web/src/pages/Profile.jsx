@@ -17,6 +17,7 @@ export default function Profile() {
       <OrgDetails />
       {org.role === 'agent' && <AgentDetails />}
       {['exporter', 'importer'].includes(org.role) && <MyAgents />}
+      {['exporter', 'importer', 'agent'].includes(org.role) && <Memberships />}
     </div>
   )
 }
@@ -157,6 +158,48 @@ function MyAgents() {
             {agents.filter((a) => !linkedIds.has(a.id)).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.city ? `${a.city}, ` : ''}{a.country}</option>)}
           </select></div>
         <button className="btn-primary" disabled={!pick} onClick={linkAgent}>Give consent</button>
+      </div>
+      {err && <p className="text-sm text-red-700">{err}</p>}
+    </section>
+  )
+}
+
+// A business names the chamber, export agency or association it belongs to; the partner confirms (user story P1)
+function Memberships() {
+  const { org } = useAuth()
+  const [rows, setRows] = useState([])
+  const [partners, setPartners] = useState([])
+  const [pick, setPick] = useState('')
+  const [err, setErr] = useState(null)
+  const load = () => supabase.from('partner_members').select('*, partner:organisations!partner_members_partner_org_id_fkey(id, name, country)')
+    .eq('member_org_id', org.id).then(({ data }) => setRows(data ?? []))
+  useEffect(() => {
+    load()
+    supabase.from('organisations').select('id, name, country').eq('role', 'partner').order('name').then(({ data }) => setPartners(data ?? []))
+  }, [org.id]) // eslint-disable-line
+  async function add() {
+    setErr(null)
+    const { error } = await supabase.from('partner_members').insert({ partner_org_id: pick, member_org_id: org.id })
+    if (error) setErr(error.message); else { setPick(''); load() }
+  }
+  async function remove(id) { await supabase.from('partner_members').delete().eq('partner_org_id', id).eq('member_org_id', org.id); load() }
+  const have = new Set(rows.map((r) => r.partner_org_id))
+  return (
+    <section className="card space-y-3">
+      <div><h3 className="text-lg font-semibold">Associations and chambers</h3>
+        <p className="text-sm text-navy/60">Name the support organisations you belong to. They confirm your membership and can then see your verification level.</p></div>
+      {rows.map((r) => (
+        <div key={r.partner_org_id} className="flex flex-wrap items-center gap-3 border-t border-line pt-3 text-sm">
+          <span className="flex-1 font-medium">{r.partner?.name} <span className="text-xs font-normal text-navy/60">{r.partner?.country}</span></span>
+          <span className={`text-xs ${r.confirmed ? 'text-leaf' : 'text-amber-700'}`}>{r.confirmed ? 'Confirmed' : 'Waiting for confirmation'}</span>
+          <button className="text-navy/50 hover:underline" onClick={() => remove(r.partner_org_id)}>Remove</button>
+        </div>))}
+      <div className="flex flex-wrap items-end gap-2 border-t border-line pt-3">
+        <div className="min-w-[14rem] flex-1"><label className="label">Add an association</label>
+          <select className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">Choose…</option>{partners.filter((p) => !have.has(p.id)).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.country}</option>)}
+          </select></div>
+        <button className="btn-primary" disabled={!pick} onClick={add}>Add</button>
       </div>
       {err && <p className="text-sm text-red-700">{err}</p>}
     </section>

@@ -14,6 +14,7 @@ export default function AgentHome() {
   const [profile, setProfile] = useState(null)
   const [docCount, setDocCount] = useState(0)
   const [open, setOpen] = useState(false)
+  const [deals, setDeals] = useState([])
 
   const load = () => {
     supabase.from('agent_clients')
@@ -25,10 +26,13 @@ export default function AgentHome() {
     load()
     supabase.from('agent_profiles').select('*').eq('org_id', org.id).maybeSingle().then(({ data }) => setProfile(data))
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('org_id', org.id).then(({ count }) => setDocCount(count ?? 0))
+    supabase.from('interests').select('*, offers(org_id, organisations(name), commodities(name)), requests(org_id, organisations(name))')
+      .eq('agent_org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setDeals(data ?? []))
   }, [org.id]) // eslint-disable-line
 
   const active = clients.filter((c) => !c.withdrawn_at)
   const verified = active.filter((c) => c.client?.verification_tier !== 'self_declared')
+  const reachedDelivery = deals.filter((d) => ['delivered', 'completed'].includes(d.status)).length
 
   return (
     <div className="space-y-8">
@@ -39,11 +43,13 @@ export default function AgentHome() {
         </div>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-4">
         <Stat label="Active clients" value={active.length} />
         <Stat label="Clients verified" value={verified.length} />
-        <Stat label="Areas covered" value={profile?.areas_covered?.length ? profile.areas_covered.join(', ') : '—'} small />
+        <Stat label="Deals introduced" value={deals.length} />
+        <Stat label="Reached delivery" value={deals.length ? `${reachedDelivery} (${Math.round((100 * reachedDelivery) / deals.length)}%)` : '—'} />
       </section>
+      {profile?.areas_covered?.length > 0 && <p className="-mt-4 text-sm text-navy/60">Areas covered: {profile.areas_covered.join(', ')}</p>}
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -75,6 +81,23 @@ export default function AgentHome() {
               {!c.withdrawn_at && <Link to={`/clients/${c.client_org_id}`} className="mt-3 inline-block text-sm font-medium text-terra">Open client workspace →</Link>}
             </div>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-semibold">Deals you introduced</h2>
+        <p className="text-sm text-navy/60">Your fee is shown to both sides on every deal. In the MVP, fees are paid between the parties outside OXL.</p>
+        <div className="card mt-4 overflow-x-auto p-0">
+          {deals.length === 0 ? <p className="p-5 text-sm text-navy/60">No deals yet. Open a client workspace, find matches and express interest for your client.</p> : (
+            <table className="w-full min-w-[40rem] text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Seller → buyer</th><th>Commodity</th><th>Your fee</th><th>Status</th></tr></thead>
+              <tbody>{deals.map((d) => (
+                <tr key={d.id} className="border-t border-line">
+                  <td className="px-4 py-2">{d.offers?.organisations?.name} → {d.requests?.organisations?.name}</td>
+                  <td>{d.offers?.commodities?.name}</td><td className="text-xs">{d.agent_fee_note ?? '—'}</td>
+                  <td className="capitalize">{String(d.status).replace('_', ' ')}</td>
+                </tr>))}</tbody>
+            </table>)}
         </div>
       </section>
     </div>

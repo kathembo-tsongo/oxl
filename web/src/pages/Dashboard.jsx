@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
-import { supabase } from '../supabase'
+import { supabase, ROLE_LABEL } from '../supabase'
 import Listings from '../components/Listings'
 import { DemoBadge, TierBadge } from '../components/Badges'
 import AgentHome from '../components/AgentHome'
@@ -73,29 +73,68 @@ function FinancierHome() {
   )
 }
 
+// Partner dashboard: confirm members, see them by country, type and trust level (user stories P1, P2)
 function PartnerHome() {
-  const [stats, setStats] = useState([])
-  useEffect(() => {
-    supabase.from('organisations').select('country, role, verification_tier').then(({ data }) => {
-      const m = {}
-      for (const o of data ?? []) {
-        const k = `${o.country}|${o.role}`
-        m[k] ??= { country: o.country, role: o.role, total: 0, verified: 0 }
-        m[k].total++; if (o.verification_tier !== 'self_declared') m[k].verified++
-      }
-      setStats(Object.values(m).sort((a, b) => a.country.localeCompare(b.country) || a.role.localeCompare(b.role)))
-    })
-  }, [])
+  const { org } = useAuth()
+  const [members, setMembers] = useState([])
+  const [err, setErr] = useState(null)
+  const load = () => supabase.from('partner_members')
+    .select('*, member:organisations!partner_members_member_org_id_fkey(id, name, role, country, city, verification_tier, is_demo)')
+    .eq('partner_org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setMembers(data ?? []))
+  useEffect(() => { load() }, [org.id]) // eslint-disable-line
+  async function confirm(m, on) {
+    setErr(null)
+    const q = on ? supabase.from('partner_members').update({ confirmed: true }).eq('partner_org_id', org.id).eq('member_org_id', m.member_org_id)
+                 : supabase.from('partner_members').delete().eq('partner_org_id', org.id).eq('member_org_id', m.member_org_id)
+    const { error } = await q; if (error) setErr(error.message); load()
+  }
+  const confirmed = members.filter((m) => m.confirmed)
+  const pending = members.filter((m) => !m.confirmed)
+  const stats = {}
+  for (const m of confirmed) {
+    const k = `${m.member?.country}|${m.member?.role}`
+    stats[k] ??= { country: m.member?.country, role: m.member?.role, total: 0, verified: 0 }
+    stats[k].total++; if (m.member?.verification_tier !== 'self_declared') stats[k].verified++
+  }
   return (
-    <section>
-      <h2 className="text-2xl font-semibold">Ecosystem overview</h2>
-      <p className="text-sm text-navy/60">Organisations on OXL by country and role. <Link to="/directory" className="text-terra underline">Open the directory</Link> to see members.</p>
-      <table className="card mt-4 w-full text-sm">
-        <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="py-1">Country</th><th>Role</th><th className="text-right">Organisations</th><th className="text-right">Verified</th></tr></thead>
-        <tbody>{stats.map((s) => (
-          <tr key={s.country + s.role} className="border-t border-line"><td className="py-2">{s.country}</td><td className="capitalize">{s.role}</td><td className="text-right tabular-nums">{s.total}</td><td className="text-right tabular-nums">{s.verified}</td></tr>
-        ))}</tbody>
-      </table>
-    </section>
+    <div className="space-y-8">
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Confirmed members</div><div className="mt-1 text-2xl font-semibold tabular-nums">{confirmed.length}</div></div>
+        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Verified members</div><div className="mt-1 text-2xl font-semibold tabular-nums">{confirmed.filter((m) => m.member?.verification_tier !== 'self_declared').length}</div></div>
+        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Waiting for confirmation</div><div className="mt-1 text-2xl font-semibold tabular-nums">{pending.length}</div></div>
+      </section>
+      {err && <p className="text-sm text-red-700">{err}</p>}
+      {pending.length > 0 && (
+        <section className="card">
+          <h2 className="text-lg font-semibold">Membership requests</h2>
+          <p className="text-sm text-navy/60">These businesses say they are your members. Confirm only those you recognise.</p>
+          {pending.map((m) => (
+            <div key={m.member_org_id} className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+              <span className="flex-1 font-medium">{m.member?.name} <span className="text-xs font-normal text-navy/60">{ROLE_LABEL[m.member?.role]} · {m.member?.country}</span></span>
+              <button className="btn-primary" onClick={() => confirm(m, true)}>Confirm</button>
+              <button className="btn-ghost" onClick={() => confirm(m, false)}>Not a member</button>
+            </div>))}
+        </section>
+      )}
+      <section>
+        <h2 className="text-2xl font-semibold">Your members</h2>
+        <p className="text-sm text-navy/60">By country, type and verification level. <Link to="/directory" className="text-terra underline">Open the directory</Link> to find others.</p>
+        {confirmed.length === 0 ? <div className="card mt-4 text-sm text-navy/60">No confirmed members yet. Businesses can name you as their association on their Profile page.</div> : (
+          <>
+            <table className="card mt-4 w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="py-1">Country</th><th>Type</th><th className="text-right">Members</th><th className="text-right">Verified</th></tr></thead>
+              <tbody>{Object.values(stats).map((s) => (
+                <tr key={s.country + s.role} className="border-t border-line"><td className="py-2">{s.country}</td><td>{ROLE_LABEL[s.role]}</td><td className="text-right tabular-nums">{s.total}</td><td className="text-right tabular-nums">{s.verified}</td></tr>
+              ))}</tbody>
+            </table>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">{confirmed.map((m) => (
+              <div key={m.member_org_id} className="card flex items-start justify-between gap-3">
+                <div><div className="font-medium">{m.member?.name}</div><div className="text-xs text-navy/60">{ROLE_LABEL[m.member?.role]} · {m.member?.city ? `${m.member.city}, ` : ''}{m.member?.country}</div></div>
+                <div className="flex shrink-0 gap-1.5"><TierBadge tier={m.member?.verification_tier} /><DemoBadge show={m.member?.is_demo} /></div>
+              </div>))}</div>
+          </>
+        )}
+      </section>
+    </div>
   )
 }
