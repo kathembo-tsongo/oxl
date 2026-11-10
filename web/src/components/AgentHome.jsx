@@ -15,6 +15,7 @@ export default function AgentHome() {
   const [docCount, setDocCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [deals, setDeals] = useState([])
+  const [prospects, setProspects] = useState([])
 
   const load = () => {
     supabase.from('agent_clients')
@@ -28,8 +29,18 @@ export default function AgentHome() {
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('org_id', org.id).then(({ count }) => setDocCount(count ?? 0))
     supabase.from('interests').select('*, offers(org_id, organisations(name), commodities(name)), requests(org_id, organisations(name))')
       .eq('agent_org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setDeals(data ?? []))
+    loadProspects()
   }, [org.id]) // eslint-disable-line
 
+  const loadProspects = () => supabase.from('prospects').select('*').eq('assigned_agent_org_id', org.id).in('status', ['new', 'reviewed', 'invited'])
+    .order('fit_score', { ascending: false }).then(({ data }) => setProspects(data ?? []))
+  async function invite(p) {
+    const link = `${window.location.origin}/invite/${p.invite_token}`
+    const text = `Hello ${p.name},\n\nI am ${org.name}, an agent on OXL, a platform that connects verified agribusiness buyers and sellers between Kenya, Ghana and other markets. I think OXL could help you find ${p.role === 'importer' ? 'verified suppliers' : 'verified buyers'}.\n\nJoin here, or ask OXL to delete your details: ${link}`
+    try { await navigator.clipboard.writeText(text) } catch { window.prompt('Copy this invitation:', text) }
+    await supabase.from('prospects').update({ status: 'invited', invited_at: new Date().toISOString() }).eq('id', p.id)
+    loadProspects()
+  }
   const active = clients.filter((c) => !c.withdrawn_at)
   const verified = active.filter((c) => c.client?.verification_tier !== 'self_declared')
   const reachedDelivery = deals.filter((d) => ['delivered', 'completed'].includes(d.status)).length
@@ -83,6 +94,19 @@ export default function AgentHome() {
           ))}
         </div>
       </section>
+
+      {prospects.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-semibold">Prospects assigned to you</h2>
+          <p className="text-sm text-navy/60">Businesses OXL found in public sources. Contact them with the invitation: they can join or ask to be deleted.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">{prospects.map((p) => (
+            <div key={p.id} className="card">
+              <div className="font-medium">{p.name}</div>
+              <div className="text-xs text-navy/60">{p.role} · {p.city ? `${p.city}, ` : ''}{p.country} · fit {p.fit_score ?? '—'}/100{p.public_contact ? ` · ${p.public_contact}` : ''}</div>
+              <button className="btn-primary mt-3" onClick={() => invite(p)}>{p.status === 'invited' ? 'Copy invitation again' : 'Copy invitation'}</button>
+            </div>))}</div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-2xl font-semibold">Deals you introduced</h2>

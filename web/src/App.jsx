@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { supabase } from './supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -13,6 +13,9 @@ import Finance from './pages/Finance'
 import Profile from './pages/Profile'
 import ClientWorkspace from './pages/ClientWorkspace'
 import AdminReference from './pages/AdminReference'
+import AdminProspects from './pages/AdminProspects'
+import Invite from './pages/Invite'
+import Notifications from './pages/Notifications'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -21,6 +24,7 @@ export default function App() {
   const [session, setSession] = useState(undefined) // undefined = still loading
   const [profile, setProfile] = useState(null)
   const [org, setOrg] = useState(null)
+  const location = useLocation()
 
   const refresh = useCallback(async (s) => {
     const uid = s?.user?.id
@@ -39,6 +43,8 @@ export default function App() {
     return () => sub.subscription.unsubscribe()
   }, [refresh])
 
+  // Invitation links work whether or not the visitor is signed in
+  if (location.pathname.startsWith('/invite/')) return <Routes><Route path="/invite/:token" element={<Invite />} /></Routes>
   if (session === undefined) return <div className="p-10 text-navy/60">Loading…</div>
   if (!session) return <Routes><Route path="*" element={<Login />} /></Routes>
 
@@ -60,6 +66,8 @@ export default function App() {
             <Route path="/profile" element={org ? <Profile /> : <Navigate to="/admin" />} />
             {isAdmin && <Route path="/admin" element={<Admin />} />}
             {isAdmin && <Route path="/admin/reference" element={<AdminReference />} />}
+            {isAdmin && <Route path="/admin/prospects" element={<AdminProspects />} />}
+            <Route path="/notifications" element={org ? <Notifications /> : <Navigate to="/admin" />} />
             {org?.role === 'agent' && <Route path="/clients/:orgId" element={<ClientWorkspace />} />}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

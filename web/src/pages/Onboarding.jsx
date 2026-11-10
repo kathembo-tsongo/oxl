@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { useAuth } from '../App'
+import { INVITE_KEY } from './Invite'
 
 const ROLE_HINT = {
   exporter: 'You sell agricultural products',
@@ -50,6 +51,12 @@ export default function Onboarding() {
         code_of_conduct_signed_at: new Date().toISOString(),
       })
       if (aErr) { setBusy(false); setErr(aErr.message); return }
+    }
+    if (!error) {
+      // Joined through an invitation link: mark the prospect as claimed
+      let token = null
+      try { token = localStorage.getItem(INVITE_KEY) } catch { /* ignore */ }
+      if (token) { await supabase.rpc('claim_prospect', { p_token: token }); try { localStorage.removeItem(INVITE_KEY) } catch { /* ignore */ } }
     }
     setBusy(false)
     if (error) setErr(error.message); else refresh()
