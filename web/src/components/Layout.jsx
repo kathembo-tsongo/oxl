@@ -22,7 +22,9 @@ export default function Layout({ children }) {
             <NavLink to="/directory" className={link}>Directory</NavLink>
             {org && <NavLink to="/documents" className={link}>Documents</NavLink>}
             {trader && <NavLink to="/finance" className={link}>Finance</NavLink>}
-            {isAdmin && <NavLink to="/admin" className={link}>Verification</NavLink>}
+            {org && <NavLink to="/profile" className={link}>Profile</NavLink>}
+            {isAdmin && <NavLink to="/admin" end className={link}>Verification</NavLink>}
+            {isAdmin && <NavLink to="/admin/reference" className={link}>Reference data</NavLink>}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {org && <span className="hidden sm:inline text-white/80">{org.name} · {ROLE_LABEL[org.role]}</span>}

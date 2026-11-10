@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { useAuth } from '../App'
-import { DemoBadge, ScoreFactors } from '../components/Badges'
+import { DemoBadge, ScoreFactors, TierBadge } from '../components/Badges'
 
 const BAND_TEXT = { A: 'Strong evidence base', B: 'Good, some gaps', C: 'Limited evidence', D: 'Mostly unverified' }
 
@@ -39,6 +39,7 @@ export default function RiskReport() {
           </div>
         </div>
         <div className="mt-6"><ScoreFactors factors={r.factors} /></div>
+        <Evidence orgId={orgId} />
         <p className="mt-6 border-t border-line pt-3 text-xs text-navy/50">{r.disclaimer} Generated {new Date(r.generated_at).toLocaleString()}.</p>
       </div>
       {own && <ShareControls orgId={orgId} />}
@@ -71,6 +72,43 @@ function ShareControls({ orgId }) {
           </label></li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// Verification history and field visits (user story B3): who checked what, how and when
+function Evidence({ orgId }) {
+  const [hist, setHist] = useState([])
+  const [visits, setVisits] = useState([])
+  useEffect(() => {
+    supabase.from('verifications').select('*').eq('org_id', orgId).order('created_at', { ascending: false }).then(({ data }) => setHist(data ?? []))
+    supabase.from('field_visits').select('visit_date, outcome, location_text, findings').eq('org_id', orgId).order('visit_date', { ascending: false }).then(({ data }) => setVisits(data ?? []))
+  }, [orgId])
+  return (
+    <div className="mt-6 grid gap-6 border-t border-line pt-5 md:grid-cols-2">
+      <div>
+        <h3 className="font-semibold">Verification history</h3>
+        <ul className="mt-2 space-y-2 text-sm">
+          {hist.length === 0 && <li className="text-navy/60">No entries.</li>}
+          {hist.map((h) => (
+            <li key={h.id} className="flex flex-wrap items-center gap-2">
+              <TierBadge tier={h.tier} /><span className="text-navy/70">{h.method}</span>
+              <span className="ml-auto text-xs text-navy/50">{new Date(h.created_at).toLocaleDateString()}</span>
+            </li>))}
+        </ul>
+      </div>
+      <div>
+        <h3 className="font-semibold">Field visits</h3>
+        <ul className="mt-2 space-y-2 text-sm">
+          {visits.length === 0 && <li className="text-navy/60">No field visit recorded yet.</li>}
+          {visits.map((v, i) => (
+            <li key={i}>
+              <span className={`font-medium ${v.outcome === 'confirmed' ? 'text-leaf' : 'text-red-700'}`}>{v.outcome === 'confirmed' ? 'Confirmed' : v.outcome === 'concerns' ? 'Concerns found' : 'Business not found'}</span>
+              <span className="text-navy/60"> · {v.visit_date}{v.location_text ? ` · ${v.location_text}` : ''}</span>
+              {v.findings && <div className="text-xs text-navy/70">{v.findings}</div>}
+            </li>))}
+        </ul>
+      </div>
     </div>
   )
 }

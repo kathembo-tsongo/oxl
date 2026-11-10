@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, DOC_LABEL } from '../supabase'
+import { supabase, DOC_LABEL, DOC_TYPES_FOR } from '../supabase'
 import { useAuth } from '../App'
 
-export default function Documents() {
-  const { org } = useAuth()
+export default function Documents({ forOrg }) {
+  const { org: myOrg } = useAuth()
+  const org = forOrg ?? myOrg
   const [docs, setDocs] = useState([])
-  const [type, setType] = useState('business_registration')
+  const types = DOC_TYPES_FOR[org.role] ?? DOC_TYPES_FOR.default
+  const [type, setType] = useState(types[0])
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -38,16 +40,16 @@ export default function Documents() {
         <p className="text-xs text-navy/60">PDF or photo, up to 20 MB. OXL reads the key fields automatically; an OXL analyst then reviews it.</p>
         <div><label className="label">Document type</label>
           <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
-            {Object.entries(DOC_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {types.map((k) => <option key={k} value={k}>{DOC_LABEL[k]}</option>)}
           </select></div>
         <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
         {err && <p className="text-sm text-red-700">{err}</p>}
         <button className="btn-primary w-full" disabled={busy || !file}>{busy ? 'Uploading…' : 'Upload'}</button>
-        <Link to={`/report/${org.id}`} className="block text-center text-sm text-terra">See my risk report →</Link>
+        {org.role !== 'agent' && !forOrg && <Link to={`/report/${org.id}`} className="block text-center text-sm text-terra">See my risk report →</Link>}
       </form>
       <div className="space-y-3">
-        <h2 className="text-xl font-semibold">Your documents</h2>
-        {docs.length === 0 && <div className="card text-sm text-navy/60">No documents yet.</div>}
+        <h2 className="text-xl font-semibold">{forOrg ? `Documents of ${org.name}` : 'Your documents'}</h2>
+        {docs.length === 0 && <div className="card text-sm text-navy/60">{forOrg ? 'No documents you can see. You can upload for this client; to see its documents, the client must allow it on its Profile page.' : 'No documents yet.'}</div>}
         {docs.map((d) => <DocCard key={d.id} d={d} />)}
       </div>
     </div>

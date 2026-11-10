@@ -10,6 +10,9 @@ import RiskReport from './pages/RiskReport'
 import Documents from './pages/Documents'
 import Admin from './pages/Admin'
 import Finance from './pages/Finance'
+import Profile from './pages/Profile'
+import ClientWorkspace from './pages/ClientWorkspace'
+import AdminReference from './pages/AdminReference'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -54,7 +57,10 @@ export default function App() {
             <Route path="/report/:orgId" element={<RiskReport />} />
             <Route path="/documents" element={org ? <Documents /> : <Navigate to="/admin" />} />
             <Route path="/finance" element={org ? <Finance /> : <Navigate to="/admin" />} />
+            <Route path="/profile" element={org ? <Profile /> : <Navigate to="/admin" />} />
             {isAdmin && <Route path="/admin" element={<Admin />} />}
+            {isAdmin && <Route path="/admin/reference" element={<AdminReference />} />}
+            {org?.role === 'agent' && <Route path="/clients/:orgId" element={<ClientWorkspace />} />}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>
