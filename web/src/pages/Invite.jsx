@@ -26,7 +26,7 @@ export default function Invite() {
         {info && !done && (
           <>
             <h1 className="text-2xl font-semibold">{info.name}, you are invited to OXL</h1>
-            <p className="text-sm text-navy/70">OXL connects verified agribusiness buyers and sellers between Kenya, Ghana and other markets, checks that deliveries can arrive on time, and helps businesses reach trade finance.</p>
+            <p className="text-sm text-navy/70">OXL connects verified African businesses, buyers and sellers, between Kenya, Ghana and other markets, checks that deliveries can arrive on time, and helps businesses reach trade finance.</p>
             <p className="text-sm text-navy/70">We found your business in a public source. We only hold your business name, country, products and published business contact. Nothing is shown to other users until you join and are verified.</p>
             <div className="flex flex-wrap gap-2">
               <Link to="/" onClick={join} className="btn-primary">Join OXL</Link>

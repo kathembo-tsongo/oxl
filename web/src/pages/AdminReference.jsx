@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase, CERT_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
 
-const TABS = { routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', settings: 'Settings' }
+const TABS = { routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
 
 export default function AdminReference() {
   const [tab, setTab] = useState('routes')
@@ -23,6 +23,7 @@ export default function AdminReference() {
       {tab === 'locations' && <Locations />}
       {tab === 'certs' && <CertRules />}
       {tab === 'sanctions' && <Sanctions />}
+      {tab === 'activities' && <BusinessActivities />}
       {tab === 'settings' && <Settings />}
     </div>
   )
@@ -205,20 +206,124 @@ function Sanctions() {
 }
 
 function Settings() {
-  const [margin, setMargin] = useState('')
+  const [v, setV] = useState(null)
   const [msg, setMsg] = useState(null)
-  useEffect(() => { supabase.from('settings').select('value').eq('key', 'safety_margin_days').maybeSingle().then(({ data }) => setMargin(data?.value ?? 10)) }, [])
+  const KEYS = ['safety_margin_days', 'identity_required_for_verification', 'admin_requires_mfa', 'geo_max_km_from_town']
+  useEffect(() => {
+    supabase.from('settings').select('key, value').in('key', KEYS).then(({ data }) => {
+      const m = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))
+      setV({ safety_margin_days: m.safety_margin_days ?? 10, identity_required_for_verification: String(m.identity_required_for_verification ?? true) !== 'false',
+        admin_requires_mfa: String(m.admin_requires_mfa ?? true) !== 'false', geo_max_km_from_town: m.geo_max_km_from_town ?? 50 })
+    })
+  }, []) // eslint-disable-line
   async function save(e) {
     e.preventDefault(); setMsg(null)
-    const { error } = await supabase.from('settings').upsert({ key: 'safety_margin_days', value: Number(margin), updated_at: new Date().toISOString() })
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('settings').upsert([
+      { key: 'safety_margin_days', value: Number(v.safety_margin_days), updated_at: now },
+      { key: 'identity_required_for_verification', value: v.identity_required_for_verification, updated_at: now },
+      { key: 'admin_requires_mfa', value: v.admin_requires_mfa, updated_at: now },
+      { key: 'geo_max_km_from_town', value: Number(v.geo_max_km_from_town), updated_at: now },
+    ])
     setMsg(error ? { err: error.message } : { ok: 'Saved.' })
   }
+  if (!v) return null
   return (
-    <form onSubmit={save} className="card max-w-md space-y-3">
-      <h3 className="font-semibold">Delivery-time check</h3>
-      <div><label className="label">Safety margin (days)</label><input className="input" type="number" min="0" max="60" value={margin} onChange={(e) => setMargin(e.target.value)} /></div>
-      <p className="text-xs text-navy/60">A seller will pass the timing check only if goods are estimated to arrive at least this many days before the buyer's needed-by date.</p>
+    <form onSubmit={save} className="card max-w-xl space-y-4">
+      <div><h3 className="font-semibold">Delivery-time check</h3>
+        <label className="label mt-2">Safety margin (days)</label><input className="input" type="number" min="0" max="60" value={v.safety_margin_days} onChange={(e) => setV({ ...v, safety_margin_days: e.target.value })} />
+        <p className="mt-1 text-xs text-navy/60">A seller will pass the timing check only if goods are estimated to arrive at least this many days before the buyer's needed-by date.</p></div>
+      <div className="border-t border-line pt-4"><h3 className="font-semibold">Verification</h3>
+        <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={v.identity_required_for_verification} onChange={(e) => setV({ ...v, identity_required_for_verification: e.target.checked })} />
+          Require approved identity documents before raising a trust level</label>
+        <label className="label mt-3">Flag a pinned location further than (km) from the declared town</label>
+        <input className="input" type="number" min="1" max="1000" value={v.geo_max_km_from_town} onChange={(e) => setV({ ...v, geo_max_km_from_town: e.target.value })} /></div>
+      <div className="border-t border-line pt-4"><h3 className="font-semibold">Sign-in</h3>
+        <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={v.admin_requires_mfa} onChange={(e) => setV({ ...v, admin_requires_mfa: e.target.checked })} />
+          OXL staff must use two-step sign-in (authenticator app)</label>
+        <p className="mt-1 text-xs text-navy/60">Recommended: staff see identity documents and set trust levels.</p></div>
       <button className="btn-primary">Save</button><Msg m={msg} />
     </form>
+  )
+}
+
+// Business activity lists: UN ISIC by default; load each country's own list (e.g. KSIC, GSIC) from a CSV
+function parseCsv(text) {
+  const rows = []; let row = []; let cur = ''; let q = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (q) { if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++ } else if (ch === '"') q = false; else cur += ch }
+    else if (ch === '"') q = true
+    else if (ch === ',') { row.push(cur); cur = '' }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = '' }
+    else cur += ch
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row) }
+  return rows.filter((r) => r.some((c) => c.trim() !== ''))
+}
+
+function BusinessActivities() {
+  const [rows, setRows] = useState([])
+  const [countries, setCountries] = useState([])
+  const [filter, setFilter] = useState('')
+  const [imp, setImp] = useState({ country: 'KE', scheme: '', parsed: null })
+  const [msg, setMsg] = useState(null)
+  const load = () => {
+    let q = supabase.from('business_categories').select('*').order('scheme').order('code')
+    if (filter === 'all') q = q.is('country', null); else if (filter) q = q.eq('country', filter)
+    q.then(({ data }) => setRows(data ?? []))
+  }
+  useEffect(() => { supabase.from('countries').select('code, name').order('name').then(({ data }) => setCountries(data ?? [])) }, [])
+  useEffect(() => { load() }, [filter]) // eslint-disable-line
+
+  async function readFile(file) {
+    setMsg(null)
+    const cells = parseCsv(await file.text())
+    if (!cells.length) { setMsg({ err: 'The file is empty.' }); return }
+    const head = cells[0].map((h) => h.trim().toLowerCase())
+    const ci = (names) => head.findIndex((h) => names.includes(h))
+    let [c, n, p] = [ci(['code']), ci(['name', 'description', 'title']), ci(['parent_code', 'parent'])]
+    let body = cells.slice(1)
+    if (c < 0 || n < 0) { c = 0; n = 1; p = cells[0].length > 2 ? 2 : -1; body = cells } // no header row: code, name, parent
+    setImp((x) => ({ ...x, parsed: body.map((r) => ({ code: r[c]?.trim(), name: r[n]?.trim(), parent_code: p >= 0 ? r[p]?.trim() : null })).filter((r) => r.code && r.name) }))
+  }
+  async function doImport(e) {
+    e.preventDefault(); setMsg(null)
+    const { data, error } = await supabase.rpc('import_business_categories', { p_country: imp.country || null, p_scheme: imp.scheme, p_rows: imp.parsed })
+    setMsg(error ? { err: error.message } : { ok: `${data} activities loaded or updated.` })
+    if (!error) { setImp({ ...imp, parsed: null }); setFilter(imp.country || 'all'); load() }
+  }
+  async function toggle(r) { await supabase.from('business_categories').update({ is_active: !r.is_active }).eq('id', r.id); load() }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={doImport} className="card grid gap-3 sm:grid-cols-4">
+        <h3 className="sm:col-span-4 font-semibold">Load a country's list</h3>
+        <p className="sm:col-span-4 -mt-2 text-xs text-navy/60">Upload a CSV with the columns <code>code, name, parent_code</code> (e.g. Kenya's KSIC or Ghana's GSIC from the national statistics office). Loading the same list again updates names and adds new codes. Businesses in that country then see it first when choosing their activity; the UN ISIC list stays available everywhere.</p>
+        <div><label className="label">Country</label>
+          <select className="input" value={imp.country} onChange={(e) => setImp({ ...imp, country: e.target.value })}>
+            <option value="">Every country</option>{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select></div>
+        <div><label className="label">Classification name</label><input className="input" required value={imp.scheme} onChange={(e) => setImp({ ...imp, scheme: e.target.value })} placeholder="e.g. KSIC Rev.1" /></div>
+        <div className="sm:col-span-2"><label className="label">CSV file</label><input type="file" accept=".csv,text/csv" className="text-sm" onChange={(e) => e.target.files?.[0] && readFile(e.target.files[0])} /></div>
+        {imp.parsed && <div className="sm:col-span-4 text-sm">{imp.parsed.length} rows read, e.g. {imp.parsed.slice(0, 3).map((r) => `${r.code} · ${r.name}`).join('; ')}</div>}
+        <div className="sm:col-span-4 flex items-center gap-3"><button className="btn-primary" disabled={!imp.parsed?.length || !imp.scheme}>Load activities</button><Msg m={msg} /></div>
+      </form>
+      <div className="card overflow-x-auto p-0">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+          <b className="mr-auto">Activities</b>
+          <select className="input max-w-[14rem] py-1" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="">All</option><option value="all">Every country (ISIC)</option>{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select>
+        </div>
+        <table className="w-full min-w-[40rem] text-sm">
+          <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Code</th><th>Name</th><th>Classification</th><th>Country</th><th></th></tr></thead>
+          <tbody>{rows.slice(0, 500).map((r) => (
+            <tr key={r.id} className={`border-t border-line ${r.is_active ? '' : 'text-navy/40'}`}>
+              <td className="px-4 py-1.5 tabular-nums">{r.code}</td><td>{r.parent_code ? '\u00a0\u00a0' : ''}{r.name}</td><td className="text-xs">{r.scheme}</td><td>{r.country ?? 'All'}</td>
+              <td className="pr-4 text-right"><button className="text-xs text-navy/60" onClick={() => toggle(r)}>{r.is_active ? 'Hide' : 'Show'}</button></td>
+            </tr>))}</tbody>
+        </table>
+        {rows.length > 500 && <p className="px-4 py-2 text-xs text-navy/60">Showing the first 500 of {rows.length}. Filter by country to see more.</p>}
+      </div>
+    </div>
   )
 }

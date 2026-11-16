@@ -1,6 +1,8 @@
 // OXL — extract-document
-// Reads an uploaded certificate (PDF or image) from the 'documents' bucket, asks Claude to pull out
-// the key fields as JSON, and saves them on public.documents.extracted for an OXL admin to review.
+// Reads an uploaded certificate or identity document (PDF or image) from the 'documents' bucket, asks
+// Claude to pull out the key fields as JSON, and saves them on public.documents.extracted for an OXL
+// admin to review. For identity documents only the holder's name, the kind of document, its expiry and
+// the last 4 characters of the number are kept: never the full ID number or the date of birth.
 //
 // Deploy:   npx supabase functions deploy extract-document
 // Secrets:  npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...  [ANTHROPIC_MODEL=<model id>]
@@ -21,7 +23,7 @@ function encodeBase64(bytes: Uint8Array): string {
 
 const MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5-5";
 
-const PROMPT = `You are checking a trade document uploaded by an African agribusiness to a trade-facilitation platform.
+const PROMPT = `You are checking a trade document uploaded by an African business to a trade-facilitation platform.
 Return ONLY a JSON object, no prose, with these keys (use null when a value is not visible):
 {
   "detected_doc_type": one of "business_registration","export_licence","tax_certificate","quality_certificate","phytosanitary_certificate","invoice","other",
@@ -37,6 +39,24 @@ Return ONLY a JSON object, no prose, with these keys (use null when a value is n
   "confidence": "high" | "medium" | "low"
 }
 The organisation's profile name is: ORG_NAME. Flag a mismatch if the document names a different company.`;
+
+const ID_PROMPT = `You are checking an identity document uploaded to a trade-facilitation platform to confirm who is behind a business.
+Return ONLY a JSON object, no prose, with these keys (use null when a value is not visible):
+{
+  "detected_doc_type": one of "national_id","passport","driving_licence","other",
+  "holder_name": string (as printed),
+  "id_number_last4": the LAST 4 characters of the document number only, never the full number,
+  "issuing_country": ISO 3166 alpha-2 code,
+  "expiry_date": "YYYY-MM-DD",
+  "is_expired": boolean (compare expiry_date with today's date: TODAY),
+  "photo_present": boolean,
+  "name_matches": boolean or null (does holder_name match EXPECTED_NAME, allowing for order of names and missing middle names),
+  "red_flags": array of short strings (e.g. "name differs from the declared person", "photo missing or covered", "document appears edited", "only one side shown", "image too blurred to read"),
+  "confidence": "high" | "medium" | "low"
+}
+Do NOT return the date of birth, the full document number, the address or any other personal detail.
+The declared person is: EXPECTED_NAME (for the business ORG_NAME).`;
+const IDENTITY_TYPES = ["national_id", "representative_id"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -55,7 +75,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     });
     const { data: doc, error: docErr } = await asUser
-      .from("documents").select("id, org_id, storage_path, file_name, organisations(name)")
+      .from("documents").select("id, org_id, doc_type, holder_name, storage_path, file_name, organisations(name)")
       .eq("id", document_id).single();
     if (docErr || !doc) return json({ error: "Document not found or not yours" }, 404);
 
@@ -79,7 +99,19 @@ Deno.serve(async (req) => {
 
     // deno-lint-ignore no-explicit-any
     const orgName = (doc as any).organisations?.name ?? "unknown";
-    const prompt = PROMPT.replace("TODAY", new Date().toISOString().slice(0, 10)).replace("ORG_NAME", orgName);
+    const today = new Date().toISOString().slice(0, 10);
+    let prompt: string;
+    if (IDENTITY_TYPES.includes(doc.doc_type)) {
+      // Expected holder: the named representative, else the person who registered the business
+      let expected = doc.holder_name as string | null;
+      if (!expected) {
+        const { data: p } = await admin.from("profiles").select("full_name").eq("org_id", doc.org_id).not("full_name", "is", null).limit(1).maybeSingle();
+        expected = p?.full_name ?? orgName;
+      }
+      prompt = ID_PROMPT.replace("TODAY", today).replaceAll("EXPECTED_NAME", expected ?? "unknown").replace("ORG_NAME", orgName);
+    } else {
+      prompt = PROMPT.replace("TODAY", today).replace("ORG_NAME", orgName);
+    }
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -99,7 +131,13 @@ Deno.serve(async (req) => {
     const text: string = out.content?.find((c: { type: string }) => c.type === "text")?.text ?? "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Model did not return JSON");
-    const extracted = { ...JSON.parse(match[0]), model: MODEL, extracted_at: new Date().toISOString() };
+    const parsed = JSON.parse(match[0]);
+    if (IDENTITY_TYPES.includes(doc.doc_type)) {
+      // Keep at most the last 4 characters of the number, whatever the model returned
+      if (parsed.id_number_last4) parsed.id_number_last4 = String(parsed.id_number_last4).replace(/\s/g, "").slice(-4);
+      for (const k of ["date_of_birth", "dob", "id_number", "document_number", "address"]) delete parsed[k];
+    }
+    const extracted = { ...parsed, model: MODEL, extracted_at: new Date().toISOString() };
 
     await admin.from("documents").update({ extracted, extraction_status: "done" }).eq("id", document_id);
     return json({ ok: true, extracted });

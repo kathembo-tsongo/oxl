@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, ROLE_LABEL, TIER_LABEL } from '../supabase'
+import { supabase, ROLE_LABEL, TIER_LABEL, ENTITY_LABEL } from '../supabase'
 import { DemoBadge, TierBadge } from '../components/Badges'
 
 const TIER_ORDER = ['field_verified', 'registry_checked', 'documents_checked', 'self_declared']
@@ -17,7 +17,7 @@ export default function Directory() {
   const [minTier, setMinTier] = useState('')
 
   useEffect(() => {
-    supabase.from('organisations').select('*').eq('is_suspended', false).order('name').then(({ data }) => setOrgs(data ?? []))
+    supabase.from('organisations').select('*, business_categories(code, name)').eq('is_suspended', false).order('name').then(({ data }) => setOrgs(data ?? []))
     supabase.from('agent_profiles').select('*').then(({ data }) => setAgents(Object.fromEntries((data ?? []).map((a) => [a.org_id, a]))))
     supabase.from('countries').select('*').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries(data ?? []))
     supabase.from('commodities').select('*').order('name').then(({ data }) => setCommodities(data ?? []))
@@ -25,7 +25,7 @@ export default function Directory() {
   const hsName = useMemo(() => Object.fromEntries(commodities.map((c) => [c.hs_code, c.name])), [commodities])
 
   const list = useMemo(() => orgs.filter((o) => {
-    const text = `${o.name} ${o.city ?? ''} ${o.description ?? ''} ${(o.hs_codes ?? []).map((c) => hsName[c] ?? '').join(' ')} ${(agents[o.id]?.areas_covered ?? []).join(' ')}`.toLowerCase()
+    const text = `${o.name} ${o.city ?? ''} ${o.description ?? ''} ${o.business_categories?.name ?? ''} ${(o.hs_codes ?? []).map((c) => hsName[c] ?? '').join(' ')} ${(agents[o.id]?.areas_covered ?? []).join(' ')}`.toLowerCase()
     return (!country || o.country === country) && (!role || o.role === role) && (!hs || (o.hs_codes ?? []).includes(hs))
       && (!minTier || TIER_ORDER.indexOf(o.verification_tier) <= TIER_ORDER.indexOf(minTier))
       && (!q || text.includes(q.toLowerCase()))
@@ -59,10 +59,13 @@ export default function Directory() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-semibold">{o.name}</div>
-                  <div className="text-xs text-navy/60">{ROLE_LABEL[o.role]} · {o.city ? `${o.city}, ` : ''}{o.country}{o.year_established ? ` · since ${o.year_established}` : ''}</div>
+                  <div className="text-xs text-navy/60">{ROLE_LABEL[o.role]}{o.entity_type ? ` (${ENTITY_LABEL[o.entity_type]})` : ''}{a?.is_field_officer ? ` · OXL field officer${a.field_area ? `, ${a.field_area}` : ''}` : ''} · {o.city ? `${o.city}, ` : ''}{o.country}{o.year_established ? ` · since ${o.year_established}` : ''}</div>
                 </div>
                 <div className="flex shrink-0 gap-1.5"><TierBadge tier={o.verification_tier} /><DemoBadge show={o.is_demo} /></div>
               </div>
+              {(o.business_categories || o.geo_status === 'verified') && (
+                <p className="mt-1 text-xs text-navy/60">{o.business_categories ? `${o.business_categories.code} · ${o.business_categories.name}` : ''}
+                  {o.geo_status === 'verified' && <span className="ml-2 font-medium text-leaf">✓ Location confirmed by OXL</span>}</p>)}
               {o.description && <p className="mt-2 text-sm text-navy/70">{o.description}</p>}
               {(o.hs_codes ?? []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">{o.hs_codes.map((c) => <span key={c} className="rounded-full bg-cream px-2 py-0.5 text-xs">{hsName[c] ?? `HS ${c}`}</span>)}</div>

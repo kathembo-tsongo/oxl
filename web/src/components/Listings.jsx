@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS } from '../supabase'
+import { supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS, ENTITY_LABEL } from '../supabase'
 import { useAuth } from '../App'
 import { DemoBadge, ScoreFactors, ScorePill, TierBadge } from './Badges'
 import LocationSelect from './LocationSelect'
@@ -77,6 +77,7 @@ export default function Listings({ kind, forOrg }) {
               <div><dt className="inline text-navy/50">{isOffer ? 'Ready: ' : 'Needed by: '}</dt><dd className="inline font-medium">{fmtDate(isOffer ? r.available_from : r.needed_by) ?? 'not set'}</dd></div>
               <div><dt className="inline text-navy/50">{isOffer ? 'Collect from: ' : 'Deliver to: '}</dt><dd className="inline">{loc ? `${loc.name}, ${loc.country}` : (isOffer ? r.origin_country : r.destination_country)}</dd></div>
               {!isOffer && <div><dt className="inline text-navy/50">Transport: </dt><dd className="inline">{TRANSPORT_LABEL[r.transport_mode] ?? 'Any'}</dd></div>}
+              {isOffer && r.goods_owner === 'producer' && <div><dt className="inline text-navy/50">Goods owner: </dt><dd className="inline font-medium">{r.goods_owner_name}{r.commission_pct != null ? ` · ${Number(r.commission_pct)}% commission` : ''}</dd></div>}
               {isOffer && r.harvest_season && <div><dt className="inline text-navy/50">Season: </dt><dd className="inline">{r.harvest_season}</dd></div>}
               {certs?.length > 0 && <div><dt className="inline text-navy/50">{isOffer ? 'Certificates: ' : 'Wants: '}</dt><dd className="inline">{certs.map((c) => CERT_LABEL[c] ?? c).join(', ')}</dd></div>}
             </dl>
@@ -99,7 +100,15 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
     location: (isOffer ? row?.collection_location_id : row?.delivery_location_id) ?? null,
     capacity: row?.monthly_capacity_tonnes ?? '', season: row?.harvest_season ?? '', min_qty: row?.min_quantity_tonnes ?? '',
     mode: row?.transport_mode ?? 'any', certs: (isOffer ? row?.certificates : row?.preferred_certificates) ?? [],
+    goods_owner: row?.goods_owner ?? 'own', seller_producer_id: row?.seller_producer_id ?? '', commission: row?.commission_pct ?? '',
   }))
+  const sellsForOthers = isOffer && ['trader', 'cooperative'].includes(org.entity_type)
+  const [producers, setProducers] = useState([])
+  useEffect(() => {
+    if (!sellsForOthers) return
+    supabase.from('seller_producers').select('id, producer_name, commission_pct, producer:organisations!seller_producers_producer_org_id_fkey(name)')
+      .eq('seller_org_id', org.id).is('withdrawn_at', null).then(({ data }) => setProducers(data ?? []))
+  }, [org.id, sellsForOthers])
   const [err, setErr] = useState(null)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   const toggleCert = (c) => setF({ ...f, certs: f.certs.includes(c) ? f.certs.filter((x) => x !== c) : [...f.certs, c] })
@@ -112,7 +121,10 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
       incoterm: f.incoterm || null, notes: f.notes || null, updated_at: new Date().toISOString(),
       ...(isOffer
         ? { price_usd_per_tonne: num(f.price), origin_country: f.country, available_from: f.date || null, collection_location_id: f.location,
-            monthly_capacity_tonnes: num(f.capacity), harvest_season: f.season || null, certificates: f.certs }
+            monthly_capacity_tonnes: num(f.capacity), harvest_season: f.season || null, certificates: f.certs,
+            goods_owner: sellsForOthers ? f.goods_owner : 'own',
+            seller_producer_id: sellsForOthers && f.goods_owner === 'producer' ? (f.seller_producer_id || null) : null,
+            commission_pct: sellsForOthers && f.goods_owner === 'producer' ? num(f.commission) : null }
         : { target_price_usd_per_tonne: num(f.price), destination_country: f.country, needed_by: f.date || null, delivery_location_id: f.location,
             min_quantity_tonnes: num(f.min_qty), transport_mode: f.mode, preferred_certificates: f.certs }),
     }
@@ -147,6 +159,27 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
         ? <div className="sm:col-span-2"><label className="label">Harvest season</label><input className="input" value={f.season} onChange={set('season')} placeholder="e.g. Main crop Oct–Mar" /></div>
         : <div className="sm:col-span-2"><label className="label">Transport</label>
             <select className="input" value={f.mode} onChange={set('mode')}>{Object.entries(TRANSPORT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>}
+      {sellsForOthers && (
+        <div className="sm:col-span-4 grid gap-3 rounded-lg border border-line bg-cream p-3 sm:grid-cols-4">
+          <div><label className="label">Whose goods are these?</label>
+            <select className="input" value={f.goods_owner} onChange={set('goods_owner')}>
+              <option value="own">{org.entity_type === 'cooperative' ? 'Our own stock' : 'My own stock'}</option>
+              <option value="producer">{org.entity_type === 'cooperative' ? 'A member\u2019s produce' : 'A producer\u2019s goods (I sell on commission)'}</option>
+            </select></div>
+          {f.goods_owner === 'producer' && <>
+            <div className="sm:col-span-2"><label className="label">Producer</label>
+              <select className="input" required value={f.seller_producer_id} onChange={(e) => {
+                const p = producers.find((x) => x.id === e.target.value)
+                setF({ ...f, seller_producer_id: e.target.value, commission: p?.commission_pct ?? f.commission })
+              }}>
+                <option value="">Choose…</option>
+                {producers.map((p) => <option key={p.id} value={p.id}>{p.producer?.name ?? p.producer_name}</option>)}
+              </select>
+              {producers.length === 0 && <p className="mt-1 text-xs text-navy/60">Add producers on your <Link className="text-terra" to="/profile">Profile</Link> page first.</p>}</div>
+            <div><label className="label">Commission (%)</label><input className="input" type="number" step="0.1" min="0" max="50" value={f.commission} onChange={set('commission')} /></div>
+          </>}
+        </div>
+      )}
       <div className="sm:col-span-4"><label className="label">{isOffer ? 'Certificates held' : 'Certificates wanted'}</label>
         <div className="flex flex-wrap gap-2">{Object.entries(CERT_LABEL).map(([k, v]) => (
           <button type="button" key={k} onClick={() => toggleCert(k)}
@@ -167,7 +200,15 @@ function Matches({ kind, listing, actingOrg }) {
   const [showOut, setShowOut] = useState(false)
   useEffect(() => {
     const rpc = kind === 'offer' ? supabase.rpc('match_offer', { p_offer_id: listing.id }) : supabase.rpc('match_request', { p_request_id: listing.id })
-    rpc.then(({ data, error }) => { if (error) setErr(error.message); setRows(data ?? []) })
+    rpc.then(async ({ data, error }) => {
+      if (error) setErr(error.message)
+      const list = data ?? []
+      if (kind === 'request' && list.length) {
+        const { data: owners } = await supabase.from('offers').select('id, goods_owner, goods_owner_name, commission_pct, organisations(entity_type)').in('id', list.map((m) => m.offer_id))
+        const byId = Object.fromEntries((owners ?? []).map((o) => [o.id, o]))
+        setRows(list.map((m) => ({ ...m, owner: byId[m.offer_id] })))
+      } else setRows(list)
+    })
     supabase.from('interests').select('offer_id, request_id').eq(kind === 'offer' ? 'offer_id' : 'request_id', listing.id)
       .then(({ data }) => setSent(Object.fromEntries((data ?? []).map((i) => [kind === 'offer' ? i.request_id : i.offer_id, true]))))
   }, [listing.id, kind])
@@ -210,6 +251,8 @@ function Matches({ kind, listing, actingOrg }) {
             <div className="min-w-0">
               <div className="font-medium">{m.org_name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-navy/60">{m.org_country} <TierBadge tier={m.verification_tier} /> <DemoBadge show={m.is_demo} /></div>
+              {m.owner?.organisations?.entity_type && <div className="mt-1 text-xs text-navy/60">{ENTITY_LABEL[m.owner.organisations.entity_type]}</div>}
+              {m.owner?.goods_owner === 'producer' && <div className="mt-1 text-xs">Selling goods of <b>{m.owner.goods_owner_name}</b>{m.owner.commission_pct != null ? ` (${Number(m.owner.commission_pct)}% commission)` : ''}</div>}
               {m.est_arrival && <div className="mt-2 text-xs"><span className="text-navy/50">Est. arrival </span><b>{fmtDate(m.est_arrival)}</b></div>}
               <ul className="mt-2 space-y-0.5 text-xs text-leaf">{(m.checks ?? []).map((c) => <li key={c.check}>✓ {c.check}</li>)}</ul>
             </div>
@@ -250,7 +293,7 @@ function Interests({ kind, actingOrg }) {
   const [err, setErr] = useState(null)
   const load = () => {
     supabase.from('interests')
-      .select('*, agent:organisations!interests_agent_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name))')
+      .select('*, agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name))')
       .order('created_at', { ascending: false })
       .then(({ data }) => setRows((data ?? []).filter((i) => i.offers?.org_id === org.id || i.requests?.org_id === org.id)))
     supabase.from('ratings').select('deal_id').eq('rater_org_id', org.id).then(({ data }) => setRated(Object.fromEntries((data ?? []).map((r) => [r.deal_id, true]))))
@@ -279,7 +322,8 @@ function Interests({ kind, actingOrg }) {
                   <td className="py-2">{other?.name} {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">needs your reply</span>}</td>
                   <td>{i.offers?.commodities?.name}</td>
                   <td className="tabular-nums">{i.match_score ?? '—'}</td>
-                  <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span></> : '—'}</td>
+                  <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span>
+                    {i.officer && <><br /><span className="text-navy/60">Field officer: {i.officer.name}{i.officer_share_note ? ` (${i.officer_share_note})` : ''}</span></>}</> : '—'}</td>
                   <td className="text-xs">{fmtDate(i.estimated_arrival) ?? '—'}</td>
                   <td><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[i.status]}`}>{STATUS_LABEL[i.status] ?? i.status}</span></td>
                   <td className="space-x-2 whitespace-nowrap text-right">

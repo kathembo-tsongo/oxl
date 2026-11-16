@@ -62,7 +62,7 @@ export default function AdminProspects() {
   async function update(p, patch) { const { error } = await supabase.from('prospects').update(patch).eq('id', p.id); if (error) setMsg({ err: error.message }); load() }
   async function invite(p) {
     const link = `${window.location.origin}/invite/${p.invite_token}`
-    const text = `Hello ${p.name},\n\nWe are building OXL, a platform that connects verified agribusiness buyers and sellers between Kenya, Ghana and other markets. We found your business in the ${p.source} and think OXL could help you find ${p.role === 'importer' ? 'verified suppliers' : 'verified buyers'}.\n\nJoin here, or ask us to delete your details: ${link}\n\nOXL team`
+    const text = `Hello ${p.name},\n\nWe are building OXL, a platform that connects verified African businesses, buyers and sellers, between Kenya, Ghana and other markets. We found your business in the ${p.source} and think OXL could help you find ${p.role === 'importer' ? 'verified suppliers' : 'verified buyers'}.\n\nJoin here, or ask us to delete your details: ${link}\n\nOXL team`
     try { await navigator.clipboard.writeText(text); setCopied(p.id) } catch { window.prompt('Copy this invitation:', text) }
     const { data: { user } } = await supabase.auth.getUser()
     await update(p, { status: 'invited', invited_at: new Date().toISOString(), invited_by: user.id })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { GeoBadge } from '../components/LocationCard'
 import { useParams } from 'react-router-dom'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { useAuth } from '../App'
@@ -80,7 +81,9 @@ function ShareControls({ orgId }) {
 function Evidence({ orgId }) {
   const [hist, setHist] = useState([])
   const [visits, setVisits] = useState([])
+  const [geo, setGeo] = useState(null)
   useEffect(() => {
+    supabase.from('organisations').select('geo_status').eq('id', orgId).single().then(({ data }) => setGeo(data?.geo_status ?? 'none'))
     supabase.from('verifications').select('*').eq('org_id', orgId).order('created_at', { ascending: false }).then(({ data }) => setHist(data ?? []))
     supabase.from('field_visits').select('visit_date, outcome, location_text, findings').eq('org_id', orgId).order('visit_date', { ascending: false }).then(({ data }) => setVisits(data ?? []))
   }, [orgId])
@@ -98,6 +101,7 @@ function Evidence({ orgId }) {
         </ul>
       </div>
       <div>
+        {geo && <p className="mb-3 text-sm">Business location: <GeoBadge status={geo} /></p>}
         <h3 className="font-semibold">Field visits</h3>
         <ul className="mt-2 space-y-2 text-sm">
           {visits.length === 0 && <li className="text-navy/60">No field visit recorded yet.</li>}

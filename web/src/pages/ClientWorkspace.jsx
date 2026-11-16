@@ -7,6 +7,8 @@ import { useAuth } from '../App'
 import { TierBadge } from '../components/Badges'
 import Listings from '../components/Listings'
 import Documents from './Documents'
+import IdentityCard from '../components/IdentityCard'
+import LocationCard from '../components/LocationCard'
 
 export default function ClientWorkspace() {
   const { orgId } = useParams()
@@ -42,9 +44,11 @@ export default function ClientWorkspace() {
       <div className="flex gap-2">
         <button className={tabCls('listings')} onClick={() => setTab('listings')}>{client.role === 'exporter' ? 'Offers' : 'Requests'}</button>
         <button className={tabCls('documents')} onClick={() => setTab('documents')}>Documents</button>
+        <button className={tabCls('identity')} onClick={() => setTab('identity')}>Identity and location</button>
       </div>
       {tab === 'listings' && ['exporter', 'importer'].includes(client.role) && <Listings kind={client.role === 'exporter' ? 'offer' : 'request'} forOrg={client} />}
       {tab === 'documents' && <Documents forOrg={client} />}
+      {tab === 'identity' && <div className="space-y-6"><IdentityCard org={client} /><LocationCard org={client} /></div>}
     </div>
   )
 }
