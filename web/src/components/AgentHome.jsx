@@ -119,7 +119,7 @@ export default function AgentHome() {
 
       <section>
         <h2 className="text-2xl font-semibold">Deals you introduced</h2>
-        <p className="text-sm text-navy/60">Your fee is shown to both sides on every deal. In the MVP, fees are paid between the parties outside OXL.</p>
+        <p className="text-sm text-navy/60">Your fee is shown to both sides on every deal. For now, fees are paid between the parties outside OXL.</p>
         <div className="card mt-4 overflow-x-auto p-0">
           {deals.length === 0 ? <p className="p-5 text-sm text-navy/60">No deals yet. Open a client workspace, find matches and express interest for your client.</p> : (
             <table className="w-full min-w-[40rem] text-sm">

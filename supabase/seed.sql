@@ -22,25 +22,25 @@ on conflict (hs_code) do nothing;
 -- ── Demo organisations (fixed UUIDs so offers/requests can reference them) ──
 insert into public.organisations (id, name, role, country, city, registration_no, year_established, description, hs_codes, verification_tier, is_demo) values
   -- Ghana exporters
-  ('a0000000-0000-0000-0000-000000000001','Bono Cocoa Growers Union (demo)','exporter','GH','Sunyani','CS-DEMO-001',2009,'Farmer union aggregating Grade I cocoa from 1,200 smallholders in the Bono region.','{1801}','field_verified',true),
-  ('a0000000-0000-0000-0000-000000000002','Volta Cashew Processors (demo)','exporter','GH','Ho','CS-DEMO-002',2016,'Raw and processed cashew kernels, W240 and W320 grades.','{0801}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000003','Northern Shea Women''s Co-op (demo)','exporter','GH','Tamale','CS-DEMO-003',2019,'Unrefined shea butter produced by women''s groups across 14 communities.','{1515}','documents_checked',true),
-  ('a0000000-0000-0000-0000-000000000004','Kintampo Grains & Pulses (demo)','exporter','GH','Kintampo',null,2022,'Maize and soybean trader.','{1005,0713}','self_declared',true),
+  ('a0000000-0000-0000-0000-000000000001','Bono Cocoa Growers Union','exporter','GH','Sunyani','CS-DEMO-001',2009,'Farmer union aggregating Grade I cocoa from 1,200 smallholders in the Bono region.','{1801}','field_verified',true),
+  ('a0000000-0000-0000-0000-000000000002','Volta Cashew Processors','exporter','GH','Ho','CS-DEMO-002',2016,'Raw and processed cashew kernels, W240 and W320 grades.','{0801}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000003','Northern Shea Women''s Co-op','exporter','GH','Tamale','CS-DEMO-003',2019,'Unrefined shea butter produced by women''s groups across 14 communities.','{1515}','documents_checked',true),
+  ('a0000000-0000-0000-0000-000000000004','Kintampo Grains & Pulses','exporter','GH','Kintampo',null,2022,'Maize and soybean trader.','{1005,0713}','self_declared',true),
   -- Kenya exporters
-  ('a0000000-0000-0000-0000-000000000011','Murang''a Avocado Growers (demo)','exporter','KE','Murang''a','PVT-DEMO-011',2014,'Hass avocado aggregator with GlobalG.A.P.-certified packhouse.','{0804}','field_verified',true),
-  ('a0000000-0000-0000-0000-000000000012','Kericho Highlands Tea Traders (demo)','exporter','KE','Kericho','PVT-DEMO-012',2005,'CTC black tea, BP1 and PF1 grades, sold via Mombasa auction and direct.','{0902}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000013','Nyeri Coffee Collective (demo)','exporter','KE','Nyeri','PVT-DEMO-013',2011,'AA and AB washed Arabica from cooperative factories.','{0901}','documents_checked',true),
-  ('a0000000-0000-0000-0000-000000000014','Eastern Pulses Kenya (demo)','exporter','KE','Machakos',null,2023,'Green grams and dry beans.','{0713}','self_declared',true),
+  ('a0000000-0000-0000-0000-000000000011','Murang''a Avocado Growers','exporter','KE','Murang''a','PVT-DEMO-011',2014,'Hass avocado aggregator with GlobalG.A.P.-certified packhouse.','{0804}','field_verified',true),
+  ('a0000000-0000-0000-0000-000000000012','Kericho Highlands Tea Traders','exporter','KE','Kericho','PVT-DEMO-012',2005,'CTC black tea, BP1 and PF1 grades, sold via Mombasa auction and direct.','{0902}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000013','Nyeri Coffee Collective','exporter','KE','Nyeri','PVT-DEMO-013',2011,'AA and AB washed Arabica from cooperative factories.','{0901}','documents_checked',true),
+  ('a0000000-0000-0000-0000-000000000014','Eastern Pulses Kenya','exporter','KE','Machakos',null,2023,'Green grams and dry beans.','{0713}','self_declared',true),
   -- Importers / buyers
-  ('a0000000-0000-0000-0000-000000000021','Nairobi Chocolate Works (demo)','importer','KE','Nairobi','PVT-DEMO-021',2017,'Bean-to-bar chocolate maker sourcing West African cocoa.','{1801,1803}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000022','Mombasa Nut Roasters (demo)','importer','KE','Mombasa','PVT-DEMO-022',2012,'Roasted and packaged cashew for East African retail.','{0801}','documents_checked',true),
-  ('a0000000-0000-0000-0000-000000000023','Accra Beverage Distributors (demo)','importer','GH','Accra','CS-DEMO-023',2010,'Tea and coffee importer supplying supermarkets and hotels in Ghana.','{0902,0901}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000024','Kumasi Fresh Imports (demo)','importer','GH','Kumasi',null,2021,'Fresh produce importer for Ghanaian supermarkets.','{0804}','self_declared',true),
-  ('a0000000-0000-0000-0000-000000000025','Lagos Cosmetics Ingredients (demo)','importer','NG','Lagos','RC-DEMO-025',2015,'Buys shea butter for cosmetics manufacturing.','{1515}','documents_checked',true),
+  ('a0000000-0000-0000-0000-000000000021','Nairobi Chocolate Works','importer','KE','Nairobi','PVT-DEMO-021',2017,'Bean-to-bar chocolate maker sourcing West African cocoa.','{1801,1803}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000022','Mombasa Nut Roasters','importer','KE','Mombasa','PVT-DEMO-022',2012,'Roasted and packaged cashew for East African retail.','{0801}','documents_checked',true),
+  ('a0000000-0000-0000-0000-000000000023','Accra Beverage Distributors','importer','GH','Accra','CS-DEMO-023',2010,'Tea and coffee importer supplying supermarkets and hotels in Ghana.','{0902,0901}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000024','Kumasi Fresh Imports','importer','GH','Kumasi',null,2021,'Fresh produce importer for Ghanaian supermarkets.','{0804}','self_declared',true),
+  ('a0000000-0000-0000-0000-000000000025','Lagos Cosmetics Ingredients','importer','NG','Lagos','RC-DEMO-025',2015,'Buys shea butter for cosmetics manufacturing.','{1515}','documents_checked',true),
   -- Financiers and partners
-  ('a0000000-0000-0000-0000-000000000031','Savannah Trade Finance Bank (demo)','financier','GH','Accra','BOG-DEMO-031',1998,'Commercial bank with an SME trade finance desk.','{}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000032','Rift Valley Agri-Fintech (demo)','financier','KE','Nairobi','PVT-DEMO-032',2020,'Invoice and purchase-order finance for agribusiness SMEs.','{}','registry_checked',true),
-  ('a0000000-0000-0000-0000-000000000041','West–East Agribusiness Chamber (demo)','partner','GH','Accra',null,2008,'Trade association connecting Ghanaian and Kenyan agribusinesses.','{}','registry_checked',true)
+  ('a0000000-0000-0000-0000-000000000031','Savannah Trade Finance Bank','financier','GH','Accra','BOG-DEMO-031',1998,'Commercial bank with an SME trade finance desk.','{}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000032','Rift Valley Agri-Fintech','financier','KE','Nairobi','PVT-DEMO-032',2020,'Invoice and purchase-order finance for agribusiness SMEs.','{}','registry_checked',true),
+  ('a0000000-0000-0000-0000-000000000041','West–East Agribusiness Chamber','partner','GH','Accra',null,2008,'Trade association connecting Ghanaian and Kenyan agribusinesses.','{}','registry_checked',true)
 on conflict (id) do nothing;
 
 -- ── Demo offers (exporters) ──
@@ -79,7 +79,7 @@ insert into public.documents (org_id, doc_type, file_name, storage_path, review_
   ('a0000000-0000-0000-0000-000000000012','export_licence','tea-board-licence.pdf','demo/licence.pdf','approved','done');
 
 insert into public.verifications (org_id, tier, method, notes)
-select id, verification_tier, 'demo seed', 'Seeded demo organisation' from public.organisations where is_demo;
+select id, verification_tier, 'initial listing', null from public.organisations where is_demo;
 
 -- Demo consents: two exporters have shared their risk reports with the demo financiers
 insert into public.report_shares (org_id, shared_with_org_id) values

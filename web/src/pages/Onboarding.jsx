@@ -104,7 +104,7 @@ export default function Onboarding() {
         <div className="sm:col-span-2"><label className="label">{agent ? 'Agent or business name' : f.entity_type === 'individual' && business ? 'Your trading name (or your full name)' : 'Organisation name'}</label><input className="input" required value={f.name} onChange={set('name')} /></div>
         <div><label className="label">Country</label>
           <select className="input" value={f.country} onChange={set('country')}>
-            {countries.map((c) => <option key={c.code} value={c.code}>{c.name}{c.is_pilot ? ' (pilot)' : ''}</option>)}
+            {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
         </div>
         <div><label className="label">City / town</label><input className="input" value={f.city} onChange={set('city')} /></div>

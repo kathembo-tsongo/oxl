@@ -15,9 +15,9 @@ export function TierBadge({ tier, dark }) {
   )
 }
 
-export function DemoBadge({ show }) {
-  if (!show) return null
-  return <span className="rounded-full bg-terra/10 px-2 py-0.5 text-xs font-medium text-terra">demo</span>
+// The "demo" label is no longer shown. Kept as a no-op so existing call sites still work.
+export function DemoBadge() {
+  return null
 }
 
 export function ScoreFactors({ factors }) {

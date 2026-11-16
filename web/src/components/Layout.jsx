@@ -29,7 +29,7 @@ export default function Layout({ children }) {
           </div>
           <nav className="flex flex-wrap gap-1">
             {org && <NavLink to="/" end className={link}>Dashboard</NavLink>}
-            <NavLink to="/directory" className={link}>Directory</NavLink>
+            <NavLink to="/directory" className={link}>Database</NavLink>
             {org && <NavLink to="/documents" className={link}>Documents</NavLink>}
             {trader && <NavLink to="/finance" className={link}>Finance</NavLink>}
             {org && <NavLink to="/profile" className={link}>Profile</NavLink>}
@@ -54,7 +54,7 @@ export default function Layout({ children }) {
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-navy/50">
-        OXL Trade Facilitation Platform · MVP prototype · Kenya–Ghana pilot. Organisations marked “demo” are fictional.
+        OXL Trade Facilitation Platform · Kenya and Ghana
       </footer>
     </div>
   )

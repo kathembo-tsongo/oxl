@@ -34,7 +34,7 @@ export default function Directory() {
 
   return (
     <section>
-      <h2 className="text-2xl font-semibold">Directory</h2>
+      <h2 className="text-2xl font-semibold">Database</h2>
       <p className="text-sm text-navy/60">Businesses, agents, lenders and partners on OXL. Verification levels are set by OXL staff.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <input className="input max-w-xs" placeholder="Search name, town, product, area…" value={q} onChange={(e) => setQ(e.target.value)} />

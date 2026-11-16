@@ -28,7 +28,7 @@ export default function Login() {
       <div className="hidden md:flex flex-col justify-end bg-navy p-12 text-white">
         <svg width="56" height="56" viewBox="0 0 32 32" className="mb-8"><path d="M16 4 28 16 16 28 4 16z" fill="#A3472A" /></svg>
         <h1 className="text-4xl font-semibold leading-tight">Verified trade partners and finance for African businesses.</h1>
-        <p className="mt-4 text-white/70 max-w-md">OXL matches sellers and buyers across borders, verifies who they are, and gives financiers a clear risk picture. Pilot: Kenya and Ghana.</p>
+        <p className="mt-4 text-white/70 max-w-md">OXL matches sellers and buyers across borders, verifies who they are, and gives financiers a clear risk picture. Now in Kenya and Ghana.</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <form onSubmit={submit} className="w-full max-w-sm space-y-4">
