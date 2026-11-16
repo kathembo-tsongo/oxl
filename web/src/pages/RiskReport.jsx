@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { GeoBadge } from '../components/LocationCard'
+import { ReportProblem, SafetyBadge } from '../components/Safety'
 import { useParams } from 'react-router-dom'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { useAuth } from '../App'
@@ -12,7 +13,10 @@ export default function RiskReport() {
   const { org } = useAuth()
   const [r, setR] = useState(null)
   const [err, setErr] = useState(null)
+  const [alert, setAlert] = useState(null)
+  const [reporting, setReporting] = useState(false)
   useEffect(() => {
+    supabase.from('organisations').select('safety_alert').eq('id', orgId).maybeSingle().then(({ data }) => setAlert(data?.safety_alert ?? null))
     setR(null); setErr(null)
     supabase.rpc('risk_report', { p_org_id: orgId }).then(({ data, error }) => error ? setErr(error.message) : setR(data))
   }, [orgId])
@@ -31,7 +35,7 @@ export default function RiskReport() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-navy/50">Counterparty risk report</p>
-            <h2 className="text-2xl font-semibold">{r.org_name} <DemoBadge show={r.is_demo} /></h2>
+            <h2 className="text-2xl font-semibold">{r.org_name} <DemoBadge show={r.is_demo} /> <SafetyBadge alert={alert} /></h2>
             <p className="text-sm text-navy/60">{ROLE_LABEL[r.role]} · {r.country}</p>
           </div>
           <div className="text-right">
@@ -41,6 +45,9 @@ export default function RiskReport() {
         </div>
         <div className="mt-6"><ScoreFactors factors={r.factors} /></div>
         <Evidence orgId={orgId} />
+        {!own && org && (reporting
+          ? <ReportProblem reporterOrgId={org.id} reported={{ id: orgId, name: r.org_name }} onClose={() => setReporting(false)} />
+          : <button className="mt-4 text-sm text-red-700/80 hover:text-red-700" onClick={() => setReporting(true)}>Report a problem with {r.org_name}</button>)}
         <p className="mt-6 border-t border-line pt-3 text-xs text-navy/50">{r.disclaimer} Generated {new Date(r.generated_at).toLocaleString()}.</p>
       </div>
       {own && <ShareControls orgId={orgId} />}

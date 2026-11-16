@@ -1,3 +1,4 @@
+import { SafetyBadge } from '../components/Safety'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, ROLE_LABEL, TIER_LABEL, ENTITY_LABEL } from '../supabase'
@@ -20,7 +21,7 @@ export default function Directory() {
     supabase.from('organisations').select('*, business_categories(code, name)').eq('is_suspended', false).order('name').then(({ data }) => setOrgs(data ?? []))
     supabase.from('agent_profiles').select('*').then(({ data }) => setAgents(Object.fromEntries((data ?? []).map((a) => [a.org_id, a]))))
     supabase.from('countries').select('*').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries(data ?? []))
-    supabase.from('commodities').select('*').order('name').then(({ data }) => setCommodities(data ?? []))
+    supabase.from('commodities').select('*').eq('is_active', true).order('name').then(({ data }) => setCommodities(data ?? []))
   }, [])
   const hsName = useMemo(() => Object.fromEntries(commodities.map((c) => [c.hs_code, c.name])), [commodities])
 
@@ -66,6 +67,7 @@ export default function Directory() {
               {(o.business_categories || o.geo_status === 'verified') && (
                 <p className="mt-1 text-xs text-navy/60">{o.business_categories ? `${o.business_categories.code} · ${o.business_categories.name}` : ''}
                   {o.geo_status === 'verified' && <span className="ml-2 font-medium text-leaf">✓ Location confirmed by OXL</span>}</p>)}
+              {o.safety_alert && <p className="mt-1"><SafetyBadge alert={o.safety_alert} /> <span className="text-xs text-navy/60">{o.safety_alert === 'high' ? 'Do not pay or ship until OXL contacts you.' : 'Confirm details through OXL before paying or shipping.'}</span></p>}
               {o.description && <p className="mt-2 text-sm text-navy/70">{o.description}</p>}
               {(o.hs_codes ?? []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">{o.hs_codes.map((c) => <span key={c} className="rounded-full bg-cream px-2 py-0.5 text-xs">{hsName[c] ?? `HS ${c}`}</span>)}</div>

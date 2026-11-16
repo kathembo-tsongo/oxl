@@ -56,7 +56,19 @@ export const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'DAP', 'DDP']
 export const CERT_LABEL = {
   phytosanitary: 'Phytosanitary', certificate_of_origin: 'Certificate of origin', organic: 'Organic', fairtrade: 'Fairtrade',
   rainforest_alliance: 'Rainforest Alliance', globalgap: 'GlobalG.A.P.', haccp: 'HACCP / food safety',
+  // goods beyond farming (Richmond, 13 Nov 2026)
+  conformity: 'Certificate of conformity (e.g. KEBS PVoC)', standards_mark: 'National standards mark (KEBS, GSA…)',
+  product_registration: 'Product registration (e.g. FDA Ghana, PPB Kenya)', lab_test: 'Laboratory test report',
+  iso_9001: 'ISO 9001 quality management', halal: 'Halal',
 }
+// Which certificates to offer for which kind of product (all stay available in the certificate rules)
+const FARM_CERTS = ['phytosanitary', 'certificate_of_origin', 'organic', 'fairtrade', 'rainforest_alliance', 'globalgap', 'haccp', 'lab_test', 'halal']
+const GOODS_CERTS = ['certificate_of_origin', 'conformity', 'standards_mark', 'product_registration', 'lab_test', 'iso_9001', 'halal']
+export const certsFor = (category) => (category === 'farm' ? FARM_CERTS : category === 'processed' ? [...new Set([...FARM_CERTS, ...GOODS_CERTS])] : category ? GOODS_CERTS : Object.keys(CERT_LABEL))
+// Unit of sale per product (commodities.unit)
+export const UNIT_LABEL = { t: 'tonnes', kg: 'kg', pieces: 'pieces', cartons: 'cartons', bags: 'bags', litres: 'litres', m3: 'cubic metres', metres: 'metres' }
+export const UNIT_SHORT = { t: 't', kg: 'kg', pieces: 'pcs', cartons: 'cartons', bags: 'bags', litres: 'L', m3: 'm³', metres: 'm' }
+export const CATEGORY_LABEL = { farm: 'Farm produce', processed: 'Processed food and drinks', manufactured: 'Manufactured goods', mineral: 'Minerals and metals', other: 'Other' }
 export const TRANSPORT_LABEL = { any: 'Any', sea: 'Sea', road: 'Road', air: 'Air' }
 // Common grade names per commodity, offered as suggestions (users can still type their own)
 export const GRADE_SUGGESTIONS = {

@@ -14,6 +14,7 @@ import Profile from './pages/Profile'
 import ClientWorkspace from './pages/ClientWorkspace'
 import AdminReference from './pages/AdminReference'
 import AdminProspects from './pages/AdminProspects'
+import AdminSafety from './pages/AdminSafety'
 import Invite from './pages/Invite'
 import Notifications from './pages/Notifications'
 import { MfaChallenge, MfaRequired, NewPassword } from './components/Security'
@@ -85,6 +86,7 @@ export default function App() {
             {isAdmin && <Route path="/admin" element={<Admin />} />}
             {isAdmin && <Route path="/admin/reference" element={<AdminReference />} />}
             {isAdmin && <Route path="/admin/prospects" element={<AdminProspects />} />}
+            {isAdmin && <Route path="/admin/safety" element={<AdminSafety />} />}
             <Route path="/notifications" element={org ? <Notifications /> : <Navigate to="/admin" />} />
             {org?.role === 'agent' && <Route path="/clients/:orgId" element={<ClientWorkspace />} />}
             <Route path="*" element={<Navigate to="/" />} />

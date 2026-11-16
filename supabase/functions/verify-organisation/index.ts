@@ -27,11 +27,11 @@ Consider: name on registration documents vs profile name; names on identity docu
 registration and licence numbers; expiry dates (today is TODAY); the declared country and town vs the pinned map
 location and its automatic check; the business activity vs the commodities and description; how the business
 trades (individual, enterprise, cooperative, trader) vs the documents provided; red flags the document reader raised;
-field visit findings; sanctions matches.
+field visit findings; sanctions matches; automatic safety signals and reports from other users.
 Return ONLY a JSON object, no prose:
 {
   "summary": two or three plain sentences for the OXL analyst,
-  "checks": [ { "area": one of "identity","registration","documents","location","activity","field_visits","sanctions",
+  "checks": [ { "area": one of "identity","registration","documents","location","activity","field_visits","sanctions","safety",
                 "result": "pass" | "warn" | "fail" | "missing", "detail": one short sentence } ],
   "red_flags": array of short strings,
   "next_steps": array of short, concrete actions for the analyst (e.g. "Ask for the second director's ID"),
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       .eq("id", org_id).single();
     if (oErr || !org) return json({ error: "Organisation not found" }, 404);
 
-    const [docs, people, identity, visits, history, producers, pin] = await Promise.all([
+    const [docs, people, identity, visits, history, producers, pin, flags, reports] = await Promise.all([
       admin.from("documents").select("doc_type, holder_name, holder_role, review_status, extraction_status, extracted, created_at").eq("org_id", org_id),
       admin.from("profiles").select("full_name").eq("org_id", org_id),
       asUser.rpc("identity_requirement", { p_org: org_id }),
@@ -73,6 +73,8 @@ Deno.serve(async (req) => {
       admin.from("verifications").select("tier, method, created_at").eq("org_id", org_id),
       admin.from("seller_producers").select("producer_name, consent_method, commission_pct, withdrawn_at").eq("seller_org_id", org_id),
       admin.from("org_locations").select("lat, lon, accuracy_m, source, auto_check, set_at, reviewed_at, review_note").eq("org_id", org_id).maybeSingle(),
+      admin.from("risk_flags").select("kind, severity, detail, status, created_at").eq("org_id", org_id),
+      admin.from("problem_reports").select("category, description, status, created_at").eq("reported_org_id", org_id),
     ]);
 
     // Sanctions: exact name matches on the business and on the people named on its IDs
@@ -91,6 +93,8 @@ Deno.serve(async (req) => {
     const data = {
       organisation: org,
       pinned_location: pin.data ?? null,
+      safety_signals: flags.data ?? [],
+      reports_from_users: reports.data ?? [],
       people_registered: (people.data ?? []).map((p) => p.full_name),
       identity_requirement: identity.data ?? null,
       documents: docs.data ?? [],

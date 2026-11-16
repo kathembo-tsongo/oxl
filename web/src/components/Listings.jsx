@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS, ENTITY_LABEL } from '../supabase'
+import { ReportProblem, SafetyBadge } from './Safety'
+import { certsFor, UNIT_LABEL, UNIT_SHORT, supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS, ENTITY_LABEL } from '../supabase'
 import { useAuth } from '../App'
 import { DemoBadge, ScoreFactors, ScorePill, TierBadge } from './Badges'
 import LocationSelect from './LocationSelect'
 
+const u = (r) => UNIT_SHORT[r.commodities?.unit ?? 't'] ?? 't'
 const fmtDate = (d) => (d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : null)
 
 // kind = 'offer' (exporter) or 'request' (importer).
@@ -22,10 +24,10 @@ export default function Listings({ kind, forOrg }) {
   const [openId, setOpenId] = useState(null)
   const [err, setErr] = useState(null)
 
-  const load = () => supabase.from(table).select('*, commodities(name)').eq('org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setRows(data ?? []))
+  const load = () => supabase.from(table).select('*, commodities(name, unit, category)').eq('org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setRows(data ?? []))
   useEffect(() => {
     load()
-    supabase.from('commodities').select('*').order('name').then(({ data }) => setCommodities(data ?? []))
+    supabase.from('commodities').select('*').eq('is_active', true).order('name').then(({ data }) => setCommodities(data ?? []))
     supabase.from('countries').select('*').order('name').then(({ data }) => setCountries(data ?? []))
     supabase.from('locations').select('id, name, country').then(({ data }) => setLocations(Object.fromEntries((data ?? []).map((l) => [l.id, l]))))
   }, [org.id]) // eslint-disable-line
@@ -59,8 +61,8 @@ export default function Listings({ kind, forOrg }) {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
               <div className="font-semibold">{r.commodities?.name} <span className="font-normal text-navy/50">HS {r.hs_code}</span></div>
               <div className="text-sm">{r.grade ?? 'Any grade'}</div>
-              <div className="text-sm tabular-nums">{Number(r.quantity_tonnes)} t{isOffer && r.monthly_capacity_tonnes ? ` · ${Number(r.monthly_capacity_tonnes)} t/month` : ''}{!isOffer && r.min_quantity_tonnes ? ` (min ${Number(r.min_quantity_tonnes)} t)` : ''}</div>
-              <div className="text-sm tabular-nums">{(r.price_usd_per_tonne ?? r.target_price_usd_per_tonne) ? `$${Number(r.price_usd_per_tonne ?? r.target_price_usd_per_tonne).toLocaleString()}/t` : 'Price open'}</div>
+              <div className="text-sm tabular-nums">{Number(r.quantity_tonnes).toLocaleString()} {u(r)}{isOffer && r.monthly_capacity_tonnes ? ` · ${Number(r.monthly_capacity_tonnes).toLocaleString()} ${u(r)}/month` : ''}{!isOffer && r.min_quantity_tonnes ? ` (min ${Number(r.min_quantity_tonnes).toLocaleString()} ${u(r)})` : ''}</div>
+              <div className="text-sm tabular-nums">{(r.price_usd_per_tonne ?? r.target_price_usd_per_tonne) ? `$${Number(r.price_usd_per_tonne ?? r.target_price_usd_per_tonne).toLocaleString()}/${u(r)}` : 'Price open'}</div>
               <div className="text-sm">{r.incoterm ?? '—'}</div>
               <span className={`rounded-full px-2 py-0.5 text-xs ${r.status === 'open' ? 'bg-leaf/10 text-leaf' : 'bg-gray-100 text-navy/50'}`}>{r.status}</span>
               <div className="ml-auto flex flex-wrap gap-2">
@@ -102,6 +104,8 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
     mode: row?.transport_mode ?? 'any', certs: (isOffer ? row?.certificates : row?.preferred_certificates) ?? [],
     goods_owner: row?.goods_owner ?? 'own', seller_producer_id: row?.seller_producer_id ?? '', commission: row?.commission_pct ?? '',
   }))
+  const product = commodities.find((c) => c.hs_code === f.hs_code) ?? row?.commodities
+  const unit = product?.unit ?? 't'
   const sellsForOthers = isOffer && ['trader', 'cooperative'].includes(org.entity_type)
   const [producers, setProducers] = useState([])
   useEffect(() => {
@@ -140,15 +144,16 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
         <select className="input" required value={f.hs_code} onChange={set('hs_code')}>
           <option value="">Choose…</option>
           {commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name} (HS {c.hs_code})</option>)}
+          {row && !commodities.some((c) => c.hs_code === row.hs_code) && <option value={row.hs_code}>{row.commodities?.name ?? row.hs_code}</option>}
         </select></div>
       <div><label className="label">Grade</label>
         <input className="input" list={`grades-${kind}`} value={f.grade} onChange={set('grade')} placeholder="Choose or type" />
         <datalist id={`grades-${kind}`}>{(GRADE_SUGGESTIONS[f.hs_code] ?? []).map((g) => <option key={g} value={g} />)}</datalist></div>
-      <div><label className="label">Quantity (tonnes)</label><input className="input" type="number" step="0.01" min="0.01" required value={f.quantity_tonnes} onChange={set('quantity_tonnes')} /></div>
+      <div><label className="label">Quantity ({UNIT_LABEL[unit]})</label><input className="input" type="number" step="0.01" min="0.01" required value={f.quantity_tonnes} onChange={set('quantity_tonnes')} /></div>
       {isOffer
-        ? <div><label className="label">Monthly capacity (t)</label><input className="input" type="number" step="0.01" min="0.01" value={f.capacity} onChange={set('capacity')} placeholder="optional" /></div>
-        : <div><label className="label">Minimum order (t)</label><input className="input" type="number" step="0.01" min="0.01" value={f.min_qty} onChange={set('min_qty')} placeholder="optional" /></div>}
-      <div><label className="label">{isOffer ? 'Price' : 'Target price'} (USD/t)</label><input className="input" type="number" step="0.01" value={f.price} onChange={set('price')} /></div>
+        ? <div><label className="label">Monthly capacity ({UNIT_SHORT[unit]})</label><input className="input" type="number" step="0.01" min="0.01" value={f.capacity} onChange={set('capacity')} placeholder="optional" /></div>
+        : <div><label className="label">Minimum order ({UNIT_SHORT[unit]})</label><input className="input" type="number" step="0.01" min="0.01" value={f.min_qty} onChange={set('min_qty')} placeholder="optional" /></div>}
+      <div><label className="label">{isOffer ? 'Price' : 'Target price'} (USD per {UNIT_SHORT[unit] === 't' ? 'tonne' : UNIT_SHORT[unit]})</label><input className="input" type="number" step="0.01" value={f.price} onChange={set('price')} /></div>
       <div><label className="label">Incoterm</label><select className="input" value={f.incoterm} onChange={set('incoterm')}>{INCOTERMS.map((i) => <option key={i}>{i}</option>)}</select></div>
       <div><label className="label">{isOffer ? 'Ready date' : 'Needed by'}</label><input className="input" type="date" required value={f.date} onChange={set('date')} /></div>
       <div><label className="label">{isOffer ? 'Origin country' : 'Destination country'}</label>
@@ -181,7 +186,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
         </div>
       )}
       <div className="sm:col-span-4"><label className="label">{isOffer ? 'Certificates held' : 'Certificates wanted'}</label>
-        <div className="flex flex-wrap gap-2">{Object.entries(CERT_LABEL).map(([k, v]) => (
+        <div className="flex flex-wrap gap-2">{Object.entries(CERT_LABEL).filter(([k]) => certsFor(product?.category).includes(k) || f.certs.includes(k)).map(([k, v]) => (
           <button type="button" key={k} onClick={() => toggleCert(k)}
             className={`rounded-full border px-3 py-1 text-xs ${f.certs.includes(k) ? 'border-leaf bg-leaf text-white' : 'border-line bg-white'}`}>{v}</button>))}</div></div>
       <div className="sm:col-span-4"><label className="label">Notes</label><input className="input" value={f.notes} onChange={set('notes')} /></div>
@@ -293,12 +298,13 @@ function Interests({ kind, actingOrg }) {
   const [err, setErr] = useState(null)
   const load = () => {
     supabase.from('interests')
-      .select('*, agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name))')
+      .select('*, agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert))')
       .order('created_at', { ascending: false })
       .then(({ data }) => setRows((data ?? []).filter((i) => i.offers?.org_id === org.id || i.requests?.org_id === org.id)))
     supabase.from('ratings').select('deal_id').eq('rater_org_id', org.id).then(({ data }) => setRated(Object.fromEntries((data ?? []).map((r) => [r.deal_id, true]))))
   }
   useEffect(() => { load() }, [org.id]) // eslint-disable-line
+  const [reporting, setReporting] = useState(null)
   async function act(id, action) {
     setErr(null)
     const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action })
@@ -319,7 +325,7 @@ function Interests({ kind, actingOrg }) {
               const incoming = i.initiated_by !== org.id && i.agent_org_id !== org.id
               return (
                 <tr key={i.id} className="border-t border-line align-top">
-                  <td className="py-2">{other?.name} {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">needs your reply</span>}</td>
+                  <td className="py-2">{other?.name} <SafetyBadge alert={other?.safety_alert} /> {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">needs your reply</span>}</td>
                   <td>{i.offers?.commodities?.name}</td>
                   <td className="tabular-nums">{i.match_score ?? '—'}</td>
                   <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span>
@@ -335,6 +341,7 @@ function Interests({ kind, actingOrg }) {
                     {i.status === 'delivered' && amSeller && !i.seller_confirmed_delivery_at && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
                     {['delivered', 'completed'].includes(i.status) && !rated[i.id] && <button className="text-terra" onClick={() => setRating({ deal: i, rated: other })}>Rate {amSeller ? 'buyer' : 'seller'}</button>}
                     {['proposed', 'accepted'].includes(i.status) && <button className="text-navy/40" onClick={() => act(i.id, 'cancel')}>Cancel</button>}
+                    <button className="text-red-700/70" onClick={() => setReporting({ org: other, deal: i.id })}>Report</button>
                   </td>
                 </tr>
               )
@@ -342,6 +349,7 @@ function Interests({ kind, actingOrg }) {
           </tbody>
         </table>
       </div>
+      {reporting && <ReportProblem reporterOrgId={org.id} reported={reporting.org} interestId={reporting.deal} onClose={() => setReporting(null)} />}
       {rating && <RatingForm org={org} {...rating} onDone={() => { setRating(null); load() }} />}
     </div>
   )

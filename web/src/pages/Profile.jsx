@@ -74,7 +74,7 @@ function OrgDetails() {
       <div className="sm:col-span-2"><label className="label">More about what you do</label><textarea className="input" rows={3} value={f.description} onChange={set('description')} /></div>
       {['exporter', 'importer', 'agent'].includes(org.role) && (
         <div className="sm:col-span-2"><label className="label">Commodities</label>
-          <div className="flex flex-wrap gap-2">{commodities.map((c) => (
+          <div className="flex flex-wrap gap-2">{commodities.filter((c) => c.is_active || f.hs_codes.includes(c.hs_code)).map((c) => (
             <button type="button" key={c.hs_code} onClick={() => toggleHs(c.hs_code)}
               className={`rounded-full border px-3 py-1 text-xs ${f.hs_codes.includes(c.hs_code) ? 'border-leaf bg-leaf text-white' : 'border-line bg-white'}`}>{c.name}</button>))}</div></div>
       )}

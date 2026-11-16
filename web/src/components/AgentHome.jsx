@@ -155,7 +155,7 @@ function OnboardClient({ onDone }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   useEffect(() => {
     supabase.from('countries').select('*').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries(data ?? []))
-    supabase.from('commodities').select('*').order('name').then(({ data }) => setCommodities(data ?? []))
+    supabase.from('commodities').select('*').eq('is_active', true).order('name').then(({ data }) => setCommodities(data ?? []))
   }, [])
   const toggleHs = (code) => setF({ ...f, hs: f.hs.includes(code) ? f.hs.filter((c) => c !== code) : [...f.hs, code] })
 

@@ -1,13 +1,13 @@
 // OXL staff: maintain the data matching depends on (user story O3):
 // locations, the route table, destination certificate rules, the sanctions list and the safety margin.
 import { useEffect, useState } from 'react'
-import { supabase, CERT_LABEL } from '../supabase'
+import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
 
-const TABS = { routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
+const TABS = { products: 'Products', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
 
 export default function AdminReference() {
-  const [tab, setTab] = useState('routes')
+  const [tab, setTab] = useState('products')
   return (
     <div className="space-y-6">
       <div>
@@ -23,6 +23,7 @@ export default function AdminReference() {
       {tab === 'locations' && <Locations />}
       {tab === 'certs' && <CertRules />}
       {tab === 'sanctions' && <Sanctions />}
+      {tab === 'products' && <Products />}
       {tab === 'activities' && <BusinessActivities />}
       {tab === 'settings' && <Settings />}
     </div>
@@ -324,6 +325,55 @@ function BusinessActivities() {
         </table>
         {rows.length > 500 && <p className="px-4 py-2 text-xs text-navy/60">Showing the first 500 of {rows.length}. Filter by country to see more.</p>}
       </div>
+    </div>
+  )
+}
+
+// Products traded on OXL: farm produce and goods beyond farming (Richmond, 13 Nov 2026).
+// The unit of sale is what quantities and prices are counted in; weight per unit lets OXL add transport cost.
+const NEW_PRODUCT = { hs_code: '', name: '', category: 'manufactured', unit: 'pieces', kg_per_unit: '', is_active: true }
+function Products() {
+  const [rows, setRows] = useState([])
+  const [f, setF] = useState(NEW_PRODUCT)
+  const [msg, setMsg] = useState(null)
+  const load = () => supabase.from('commodities').select('*').order('category').order('name').then(({ data }) => setRows(data ?? []))
+  useEffect(() => { load() }, [])
+  async function save(row) {
+    setMsg(null)
+    const { error } = await supabase.from('commodities').upsert({ ...row, hs_code: row.hs_code.trim(), name: row.name.trim(),
+      kg_per_unit: row.kg_per_unit === '' || row.kg_per_unit == null ? null : Number(row.kg_per_unit) })
+    setMsg(error ? { err: error.message } : { ok: `${row.name} saved.` }); if (!error) load()
+    return !error
+  }
+  const setRow = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  return (
+    <div className="space-y-4">
+      <form onSubmit={async (e) => { e.preventDefault(); if (await save(f)) setF(NEW_PRODUCT) }} className="card grid gap-3 sm:grid-cols-6">
+        <h3 className="sm:col-span-6 font-semibold">Add a product</h3>
+        <p className="sm:col-span-6 -mt-2 text-xs text-navy/60">Use the 4-digit HS code (e.g. 3401 soap, 2523 cement). Quantities and prices for this product are counted in its unit. Weight per unit lets OXL add transport cost to the landed price when the unit is not a weight.</p>
+        <div><label className="label">HS code</label><input className="input" required pattern="[0-9]{4,6}" value={f.hs_code} onChange={(e) => setF({ ...f, hs_code: e.target.value })} /></div>
+        <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+        <div><label className="label">Category</label><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{Object.entries(CATEGORY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label className="label">Sold in</label><select className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })}>{Object.entries(UNIT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label className="label">Kg per unit</label><input className="input" type="number" step="0.001" min="0" disabled={['t', 'kg'].includes(f.unit)} value={f.kg_per_unit} onChange={(e) => setF({ ...f, kg_per_unit: e.target.value })} /></div>
+        <div className="sm:col-span-6 flex items-center gap-3"><button className="btn-primary">Add product</button><Msg m={msg} /></div>
+      </form>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full min-w-[52rem] text-sm">
+          <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">HS</th><th>Name</th><th>Category</th><th>Sold in</th><th>Kg per unit</th><th>Shown</th><th></th></tr></thead>
+          <tbody>{rows.map((r, i) => (
+            <tr key={r.hs_code} className={`border-t border-line ${r.is_active ? '' : 'bg-cream/60 text-navy/60'}`}>
+              <td className="px-4 py-1.5 tabular-nums">{r.hs_code}</td>
+              <td><input className="input py-1" value={r.name} onChange={(e) => setRow(i, 'name', e.target.value)} /></td>
+              <td><select className="input py-1" value={r.category} onChange={(e) => setRow(i, 'category', e.target.value)}>{Object.entries(CATEGORY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+              <td><select className="input py-1" value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)}>{Object.entries(UNIT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+              <td><input className="input w-24 py-1" type="number" step="0.001" min="0" disabled={['t', 'kg'].includes(r.unit)} value={r.kg_per_unit ?? ''} onChange={(e) => setRow(i, 'kg_per_unit', e.target.value)} /></td>
+              <td><input type="checkbox" checked={r.is_active} onChange={(e) => setRow(i, 'is_active', e.target.checked)} aria-label="Shown to users" /></td>
+              <td className="pr-4 text-right"><button className="text-xs text-terra" onClick={() => save(r)}>Save</button></td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+      <p className="text-xs text-navy/60">Hidden products are not offered in sign-up or new listings; existing listings keep working. Add the certificate rules for each new product under <b>Certificate rules</b>.</p>
     </div>
   )
 }

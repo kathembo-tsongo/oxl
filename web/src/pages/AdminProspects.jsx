@@ -75,6 +75,7 @@ export default function AdminProspects() {
         <h2 className="text-2xl font-semibold">Prospects</h2>
         <p className="text-sm text-navy/60">Businesses found in public sources that are not yet on OXL. Visible only to OXL staff and assigned agents, and never shown as verified.</p>
       </div>
+      <AiSearch onFound={load} />
       <section className="card space-y-3">
         <h3 className="font-semibold">Add prospects from a spreadsheet</h3>
         <p className="text-xs text-navy/60">Save your spreadsheet as CSV with these columns: <code>{COLUMNS.join(', ')}</code>. Commodities are HS codes separated by semicolons (e.g. <code>1801;1803</code>). Use only public business information.</p>
@@ -119,5 +120,41 @@ export default function AdminProspects() {
         ))}
       </div>
     </div>
+  )
+}
+
+// AI prospecting (Richmond, 13 Nov 2026): Claude searches public directories and websites; staff review every result
+function AiSearch({ onFound }) {
+  const [countries, setCountries] = useState([])
+  const [products, setProducts] = useState([])
+  const [f, setF] = useState({ country: 'GH', hs_code: '', role: 'exporter', limit: 8 })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  useEffect(() => {
+    supabase.from('countries').select('code, name').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries(data ?? []))
+    supabase.from('commodities').select('hs_code, name').eq('is_active', true).order('name').then(({ data }) => setProducts(data ?? []))
+  }, [])
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  async function run(e) {
+    e.preventDefault(); setBusy(true); setMsg(null)
+    const { data, error } = await supabase.functions.invoke('find-prospects', { body: { ...f, limit: Number(f.limit) } })
+    setBusy(false)
+    if (error || data?.error) { setMsg({ err: data?.error ?? error.message }); return }
+    setMsg({ ok: data.added ? `${data.added} new prospect(s) added for review: ${data.names.join(', ')}.` : 'No new businesses found. Try another product or country.' })
+    onFound()
+  }
+  return (
+    <form onSubmit={run} className="card grid gap-3 sm:grid-cols-5">
+      <div className="sm:col-span-5"><h3 className="font-semibold">Find prospects with AI</h3>
+        <p className="text-xs text-navy/60">Claude searches public sources (export agency and chamber directories, trade fair lists, company websites) and adds what it finds as <b>New</b>, each with the page it came from. Check every one before assigning or inviting it. Only published business contacts are kept.</p></div>
+      <div><label className="label">Country</label><select className="input" value={f.country} onChange={set('country')}>{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
+      <div className="sm:col-span-2"><label className="label">Product</label><select className="input" required value={f.hs_code} onChange={set('hs_code')}><option value="">Choose…</option>{products.map((p) => <option key={p.hs_code} value={p.hs_code}>{p.name} (HS {p.hs_code})</option>)}</select></div>
+      <div><label className="label">Looking for</label><select className="input" value={f.role} onChange={set('role')}><option value="exporter">Sellers</option><option value="importer">Buyers</option></select></div>
+      <div><label className="label">How many (max 15)</label><input className="input" type="number" min="1" max="15" value={f.limit} onChange={set('limit')} /></div>
+      <div className="sm:col-span-5 flex flex-wrap items-center gap-3">
+        <button className="btn-primary" disabled={busy || !f.hs_code}>{busy ? 'Searching… (up to a minute)' : 'Search'}</button>
+        {msg && <p className={`text-sm ${msg.err ? 'text-red-700' : 'text-leaf'}`}>{msg.err ?? msg.ok}</p>}
+      </div>
+    </form>
   )
 }
