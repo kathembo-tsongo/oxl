@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReportProblem, SafetyBadge } from './Safety'
 import { certsFor, UNIT_LABEL, UNIT_SHORT, supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS, ENTITY_LABEL } from '../supabase'
@@ -9,7 +9,8 @@ import LocationSelect from './LocationSelect'
 const u = (r) => UNIT_SHORT[r.commodities?.unit ?? 't'] ?? 't'
 const fmtDate = (d) => (d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : null)
 
-// kind = 'offer' (exporter) or 'request' (importer).
+// kind = 'offer' (exporter's supply listing) or 'request' (importer's purchase offer).
+// The buyer makes the offer and the seller replies, so deals are started from the importer's side only.
 // forOrg lets an agent manage listings for a client; it defaults to the signed-in organisation.
 export default function Listings({ kind, forOrg }) {
   const { org: myOrg } = useAuth()
@@ -42,10 +43,12 @@ export default function Listings({ kind, forOrg }) {
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">{isOffer ? 'Offers' : 'Sourcing requests'}{forOrg ? ` for ${org.name}` : ''}</h2>
-          <p className="text-sm text-navy/60">{isOffer ? 'What can be supplied, and when it will be ready. OXL ranks buyers for each one.' : 'What is needed, and by when. OXL ranks suppliers who can deliver in time.'}</p>
+          <h2 className="text-2xl font-semibold">{isOffer ? 'Supply listings' : 'Purchase offers'}{forOrg ? ` for ${org.name}` : ''}</h2>
+          <p className="text-sm text-navy/60">{isOffer
+            ? 'What can be supplied, and when it will be ready. OXL ranks buyers for each one. Buyers send you purchase offers; you accept, accept with terms, or decline.'
+            : 'What you want to buy, and by when. OXL ranks suppliers who can deliver in time. You make the offer; the seller accepts, adds terms, or declines.'}</p>
         </div>
-        <button className="btn-primary" onClick={() => setEditing(editing ? null : 'new')}>{editing ? 'Cancel' : isOffer ? '+ New offer' : '+ New request'}</button>
+        <button className="btn-primary" onClick={() => setEditing(editing ? null : 'new')}>{editing ? 'Cancel' : isOffer ? '+ New supply listing' : '+ New purchase offer'}</button>
       </div>
 
       {editing && <ListingForm key={editing === 'new' ? 'new' : editing.id} kind={kind} org={org} row={editing === 'new' ? null : editing}
@@ -81,7 +84,7 @@ export default function Listings({ kind, forOrg }) {
               {!isOffer && <div><dt className="inline text-navy/50">Transport: </dt><dd className="inline">{TRANSPORT_LABEL[r.transport_mode] ?? 'Any'}</dd></div>}
               {isOffer && r.goods_owner === 'producer' && <div><dt className="inline text-navy/50">Goods owner: </dt><dd className="inline font-medium">{r.goods_owner_name}{r.commission_pct != null ? ` · ${Number(r.commission_pct)}% commission` : ''}</dd></div>}
               {isOffer && r.harvest_season && <div><dt className="inline text-navy/50">Season: </dt><dd className="inline">{r.harvest_season}</dd></div>}
-              {certs?.length > 0 && <div><dt className="inline text-navy/50">{isOffer ? 'Certificates: ' : 'Wants: '}</dt><dd className="inline">{certs.map((c) => CERT_LABEL[c] ?? c).join(', ')}</dd></div>}
+              {certs?.length > 0 && <div><dt className="inline text-navy/50">{isOffer ? 'Certificates: ' : 'Wants: '}</dt><dd className="inline">{certs.map((c) => CERT_LABEL[c]?? c).join(', ')}</dd></div>}
             </dl>
             {openId === r.id && <Matches kind={kind} listing={r} actingOrg={org} />}
           </div>
@@ -139,7 +142,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
 
   return (
     <form onSubmit={save} className="card grid gap-3 sm:grid-cols-4">
-      <h3 className="sm:col-span-4 text-lg font-semibold">{row ? 'Edit' : 'New'} {isOffer ? 'offer' : 'request'}</h3>
+      <h3 className="sm:col-span-4 text-lg font-semibold">{row ? 'Edit' : 'New'} {isOffer ? 'supply listing' : 'purchase offer'}</h3>
       <div className="sm:col-span-2"><label className="label">Commodity</label>
         <select className="input" required value={f.hs_code} onChange={set('hs_code')}>
           <option value="">Choose…</option>
@@ -169,7 +172,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
           <div><label className="label">Whose goods are these?</label>
             <select className="input" value={f.goods_owner} onChange={set('goods_owner')}>
               <option value="own">{org.entity_type === 'cooperative' ? 'Our own stock' : 'My own stock'}</option>
-              <option value="producer">{org.entity_type === 'cooperative' ? 'A member\u2019s produce' : 'A producer\u2019s goods (I sell on commission)'}</option>
+              <option value="producer">{org.entity_type === 'cooperative' ? 'A member’s produce' : 'A producer’s goods (I sell on commission)'}</option>
             </select></div>
           {f.goods_owner === 'producer' && <>
             <div className="sm:col-span-2"><label className="label">Producer</label>
@@ -191,7 +194,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
             className={`rounded-full border px-3 py-1 text-xs ${f.certs.includes(k) ? 'border-leaf bg-leaf text-white' : 'border-line bg-white'}`}>{v}</button>))}</div></div>
       <div className="sm:col-span-4"><label className="label">Notes</label><input className="input" value={f.notes} onChange={set('notes')} /></div>
       {err && <p className="sm:col-span-4 text-sm text-red-700">{err}</p>}
-      <div className="sm:col-span-4"><button className="btn-primary">{row ? 'Save changes' : `Post ${isOffer ? 'offer' : 'request'}`}</button></div>
+      <div className="sm:col-span-4"><button className="btn-primary">{row ? 'Save changes' : `Post ${isOffer ? 'supply listing' : 'purchase offer'}`}</button></div>
     </form>
   )
 }
@@ -200,7 +203,8 @@ function Matches({ kind, listing, actingOrg }) {
   const { org: myOrg } = useAuth()
   const agentActing = actingOrg.id !== myOrg.id
   const [rows, setRows] = useState(null)
-  const [sent, setSent] = useState({})
+  const [sent, setSent] = useState({})       // a deal already exists with this listing
+  const [invited, setInvited] = useState({}) // seller side: the buyer has already been invited
   const [err, setErr] = useState(null)
   const [showOut, setShowOut] = useState(false)
   useEffect(() => {
@@ -216,20 +220,31 @@ function Matches({ kind, listing, actingOrg }) {
     })
     supabase.from('interests').select('offer_id, request_id').eq(kind === 'offer' ? 'offer_id' : 'request_id', listing.id)
       .then(({ data }) => setSent(Object.fromEntries((data ?? []).map((i) => [kind === 'offer' ? i.request_id : i.offer_id, true]))))
+    if (kind === 'offer') {
+      supabase.from('deal_invitations').select('request_id').eq('offer_id', listing.id)
+        .then(({ data }) => setInvited(Object.fromEntries((data ?? []).map((i) => [i.request_id, true]))))
+    }
   }, [listing.id, kind])
 
-  async function express(m) {
+  // Buyer side: make an offer to a matching seller. The deal starts as "proposed" and the seller replies.
+  async function makeOffer(m) {
     setErr(null)
-    const otherId = kind === 'offer' ? m.request_id : m.offer_id
     let fee = null
     if (agentActing) {
       const { data } = await supabase.from('agent_profiles').select('typical_fee_note').eq('org_id', myOrg.id).maybeSingle()
       fee = data?.typical_fee_note ?? 'Fee to be agreed'
     }
     const base = { initiated_by: myOrg.id, match_score: m.score, ...(agentActing ? { agent_org_id: myOrg.id, agent_fee_note: fee } : {}) }
-    const row = kind === 'offer' ? { ...base, offer_id: listing.id, request_id: otherId } : { ...base, offer_id: otherId, request_id: listing.id }
+    const row = { ...base, offer_id: m.offer_id, request_id: listing.id }
     const { error } = await supabase.from('interests').insert(row)
-    if (error) setErr(error.message); else setSent({ ...sent, [otherId]: true })
+    if (error) setErr(error.message); else setSent({ ...sent, [m.offer_id]: true })
+  }
+
+  // Seller side: invite a matching buyer to make an offer. The buyer gets a notification; no deal is created.
+  async function invite(m) {
+    setErr(null)
+    const { error } = await supabase.rpc('invite_to_offer', { p_offer_id: listing.id, p_request_id: m.request_id })
+    if (error) setErr(error.message); else setInvited({ ...invited, [m.request_id]: true })
   }
 
   if (!rows) return <p className="mt-4 text-sm text-navy/60">Matching…</p>
@@ -247,7 +262,7 @@ function Matches({ kind, listing, actingOrg }) {
         <b>{pass.length}</b> of {rows.length} {other} with this commodity pass all checks{out.length > 0 && <>; {out.length} left out (
         {Object.entries(reasons).map(([k, n], i) => <span key={k}>{i ? ', ' : ''}{n} {k.toLowerCase().replace('ready in time', 'not ready in time').replace('allowed at destination', 'missing a required certificate').replace('enough quantity', 'too small').replace('right product', 'different grade').replace('safe to connect', 'not eligible')}</span>)})</>}.
       </p>
-      {rows.length === 0 && <p className="text-sm text-navy/60">No open {kind === 'offer' ? 'requests' : 'offers'} for this commodity yet.</p>}
+      {rows.length === 0 && <p className="text-sm text-navy/60">No open {kind === 'offer' ? 'purchase offers' : 'supply listings'} for this commodity yet.</p>}
       {pass.map((m) => {
         const otherId = kind === 'offer' ? m.request_id : m.offer_id
         return (
@@ -263,7 +278,11 @@ function Matches({ kind, listing, actingOrg }) {
             </div>
             <ScoreFactors factors={m.factors} />
             <div className="flex flex-col gap-2">
-              <button className="btn-primary" disabled={sent[otherId]} onClick={() => express(m)}>{sent[otherId] ? 'Interest sent' : 'Express interest'}</button>
+              {kind === 'request'
+                ? <button className="btn-primary" disabled={sent[otherId]} onClick={() => makeOffer(m)}>{sent[otherId] ? 'Offer sent' : 'Make offer'}</button>
+                : sent[otherId]
+                  ? <button className="btn-primary" disabled>Offer received</button>
+                  : <button className="btn-primary" disabled={invited[otherId]} onClick={() => invite(m)}>{invited[otherId] ? 'Invitation sent' : 'Invite to make an offer'}</button>}
               <Link className="btn-ghost" to={`/report/${m.org_id}`}>Trust report</Link>
             </div>
           </div>
@@ -289,13 +308,15 @@ const STATUS_STYLE = {
 }
 const STATUS_LABEL = { proposed: 'Proposed', accepted: 'Accepted', in_transit: 'In transit', delivered: 'Delivered', completed: 'Completed', declined: 'Declined', cancelled: 'Cancelled' }
 
-// Deal pipeline: proposed → accepted → in transit → delivered → completed, with ratings after delivery
+// Deal pipeline: proposed (buyer's offer) → accepted (seller, optionally with terms) → in transit → delivered → completed, with ratings after delivery
 function Interests({ kind, actingOrg }) {
   const org = actingOrg
   const [rows, setRows] = useState([])
   const [rated, setRated] = useState({})
   const [rating, setRating] = useState(null)
   const [err, setErr] = useState(null)
+  const [termsFor, setTermsFor] = useState(null) // deal id whose "accept with terms" box is open
+  const [terms, setTerms] = useState('')
   const load = () => {
     supabase.from('interests')
       .select('*, agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert))')
@@ -305,9 +326,9 @@ function Interests({ kind, actingOrg }) {
   }
   useEffect(() => { load() }, [org.id]) // eslint-disable-line
   const [reporting, setReporting] = useState(null)
-  async function act(id, action) {
+  async function act(id, action, sellerTerms) {
     setErr(null)
-    const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action })
+    const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action, ...(sellerTerms ? { p_terms: sellerTerms } : {}) })
     if (error) setErr(error.message); load()
   }
   if (!rows.length) return null
@@ -322,28 +343,50 @@ function Interests({ kind, actingOrg }) {
             {rows.map((i) => {
               const amSeller = i.offers?.org_id === org.id
               const other = amSeller ? i.requests?.organisations : i.offers?.organisations
-              const incoming = i.initiated_by !== org.id && i.agent_org_id !== org.id
+              // Buyer-first deals are answered by the seller; older deals are answered by whoever did not propose them
+              const incoming = i.proposed_by_side
+                ? (i.proposed_by_side === 'buyer' ? amSeller : !amSeller)
+                : i.initiated_by !== org.id && i.agent_org_id !== org.id
               return (
-                <tr key={i.id} className="border-t border-line align-top">
-                  <td className="py-2">{other?.name} <SafetyBadge alert={other?.safety_alert} /> {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">needs your reply</span>}</td>
-                  <td>{i.offers?.commodities?.name}</td>
-                  <td className="tabular-nums">{i.match_score ?? '—'}</td>
-                  <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span>
-                    {i.officer && <><br /><span className="text-navy/60">Field officer: {i.officer.name}{i.officer_share_note ? ` (${i.officer_share_note})` : ''}</span></>}</> : '—'}</td>
-                  <td className="text-xs">{fmtDate(i.estimated_arrival) ?? '—'}</td>
-                  <td><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[i.status]}`}>{STATUS_LABEL[i.status] ?? i.status}</span></td>
-                  <td className="space-x-2 whitespace-nowrap text-right">
-                    {i.status === 'proposed' && incoming && <>
-                      <button className="text-leaf" onClick={() => act(i.id, 'accept')}>Accept</button>
-                      <button className="text-navy/50" onClick={() => act(i.id, 'decline')}>Decline</button></>}
-                    {i.status === 'accepted' && amSeller && <button className="text-leaf" onClick={() => act(i.id, 'ship')}>Mark shipped</button>}
-                    {i.status === 'in_transit' && !amSeller && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
-                    {i.status === 'delivered' && amSeller && !i.seller_confirmed_delivery_at && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
-                    {['delivered', 'completed'].includes(i.status) && !rated[i.id] && <button className="text-terra" onClick={() => setRating({ deal: i, rated: other })}>Rate {amSeller ? 'buyer' : 'seller'}</button>}
-                    {['proposed', 'accepted'].includes(i.status) && <button className="text-navy/40" onClick={() => act(i.id, 'cancel')}>Cancel</button>}
-                    <button className="text-red-700/70" onClick={() => setReporting({ org: other, deal: i.id })}>Report</button>
-                  </td>
-                </tr>
+                <Fragment key={i.id}>
+                  <tr className="border-t border-line align-top">
+                    <td className="py-2">{other?.name} <SafetyBadge alert={other?.safety_alert} /> {i.status === 'proposed' && incoming && <span className="ml-1 text-xs text-terra">{amSeller ? 'purchase offer: needs your reply' : 'needs your reply'}</span>}</td>
+                    <td>{i.offers?.commodities?.name}</td>
+                    <td className="tabular-nums">{i.match_score ?? '—'}</td>
+                    <td className="text-xs">{i.agent ? <>{i.agent.name}<br /><span className="text-navy/60">{i.agent_fee_note}</span>
+                      {i.officer && <><br /><span className="text-navy/60">Field officer: {i.officer.name}{i.officer_share_note ? ` (${i.officer_share_note})` : ''}</span></>}</>: '—'}</td>
+                    <td className="text-xs">{fmtDate(i.estimated_arrival) ?? '—'}</td>
+                    <td>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[i.status]}`}>{STATUS_LABEL[i.status] ?? i.status}</span>
+                      {i.seller_terms && <div className="mt-1 max-w-[14rem] text-xs text-navy/60">Seller’s terms: {i.seller_terms}</div>}
+                    </td>
+                    <td className="space-x-2 whitespace-nowrap text-right">
+                      {i.status === 'proposed' && incoming && <>
+                        <button className="text-leaf" onClick={() => act(i.id, 'accept')}>Accept</button>
+                        {amSeller && <button className="text-leaf" onClick={() => { setTermsFor(termsFor === i.id ? null : i.id); setTerms('') }}>Accept with terms</button>}
+                        <button className="text-navy/50" onClick={() => act(i.id, 'decline')}>Decline</button></>}
+                      {i.status === 'accepted' && amSeller && <button className="text-leaf" onClick={() => act(i.id, 'ship')}>Mark shipped</button>}
+                      {i.status === 'in_transit' && !amSeller && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
+                      {i.status === 'delivered' && amSeller && !i.seller_confirmed_delivery_at && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
+                      {['delivered', 'completed'].includes(i.status) && !rated[i.id] && <button className="text-terra" onClick={() => setRating({ deal: i, rated: other })}>Rate {amSeller ? 'buyer' : 'seller'}</button>}
+                      {['proposed', 'accepted'].includes(i.status) && <button className="text-navy/40" onClick={() => act(i.id, 'cancel')}>Cancel</button>}
+                      <button className="text-red-700/70" onClick={() => setReporting({ org: other, deal: i.id })}>Report</button>
+                    </td>
+                  </tr>
+                  {termsFor === i.id && (
+                    <tr className="bg-cream">
+                      <td colSpan={7} className="px-3 py-3">
+                        <label className="label">Your terms (price adjustments, payment, packing, inspection…)</label>
+                        <div className="flex flex-wrap gap-2">
+                          <input className="input max-w-xl flex-1" value={terms} onChange={(e) => setTerms(e.target.value)}
+                            placeholder="e.g. 30% advance, balance against bill of lading; inspection at Mombasa" />
+                          <button className="btn-primary" disabled={!terms.trim()} onClick={() => { act(i.id, 'accept', terms.trim()); setTermsFor(null); setTerms('') }}>Accept with these terms</button>
+                          <button className="btn-ghost" onClick={() => { setTermsFor(null); setTerms('') }}>Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
@@ -369,7 +412,7 @@ function RatingForm({ org, deal, rated, onDone }) {
       <p className="sm:col-span-4 font-medium">Rate {rated?.name}</p>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.on_time} onChange={(e) => setF({ ...f, on_time: e.target.checked })} /> Delivered on time</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.quality} onChange={(e) => setF({ ...f, quality: e.target.checked })} /> As described</label>
-      <div><label className="label">Overall</label><select className="input" value={f.stars} onChange={(e) => setF({ ...f, stars: e.target.value })}>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}</option>)}</select></div>
+      <div><label className="label">Overall</label><select className="input" value={f.stars} onChange={(e) => setF({ ...f, stars: e.target.value })}>{[5, 4, 3, 2, 1].map((n) =><option key={n} value={n}>{'★'.repeat(n)}</option>)}</select></div>
       <div className="sm:col-span-4"><label className="label">Comment (optional)</label><input className="input" value={f.comment} onChange={(e) => setF({ ...f, comment: e.target.value })} /></div>
       {err && <p className="sm:col-span-4 text-sm text-red-700">{err}</p>}
       <div className="sm:col-span-4 flex gap-2"><button className="btn-primary">Save rating</button><button type="button" className="btn-ghost" onClick={onDone}>Cancel</button></div>
