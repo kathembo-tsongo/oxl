@@ -1,7 +1,7 @@
 // Sign-in security (Richmond, 13 Nov 2026: "What about authentication?")
 // Two-step sign-in with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy…),
 // required for OXL staff and optional for everyone else; password reset by email.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 
 const Msg = ({ m }) => (m ? <p className={`text-sm ${m.err ? 'text-red-700' : 'text-leaf'}`}>{m.err ?? m.ok}</p> : null)
@@ -12,12 +12,15 @@ export function MfaEnrol({ onDone, onCancel }) {
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
+  const started = useRef(false)
   useEffect(() => {
-    (async () => {
+    if (started.current) return // React runs effects twice in development; set up only once
+    started.current = true
+    ;(async () => {
       // Clear half-finished set-ups so a new one can start
       const { data: list } = await supabase.auth.mfa.listFactors()
       for (const f of list?.all ?? []) if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `OXL ${new Date().toISOString().slice(0, 16)}` })
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `OXL ${new Date().toISOString().slice(0, 19)} ${Math.random().toString(36).slice(2, 6)}` })
       if (error) setMsg({ err: error.message }); else setFactor(data)
     })()
   }, [])
