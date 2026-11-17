@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReportProblem, SafetyBadge } from './Safety'
-import { certsFor, UNIT_LABEL, UNIT_SHORT, supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, GRADE_SUGGESTIONS, ENTITY_LABEL } from '../supabase'
+import { certsFor, UNIT_LABEL, UNIT_SHORT, supabase, INCOTERMS, CERT_LABEL, TRANSPORT_LABEL, ENTITY_LABEL } from '../supabase'
 import { useAuth } from '../App'
 import { DemoBadge, ScoreFactors, ScorePill, TierBadge } from './Badges'
 import LocationSelect from './LocationSelect'
@@ -19,6 +19,7 @@ export default function Listings({ kind, forOrg }) {
   const table = isOffer ? 'offers' : 'requests'
   const [rows, setRows] = useState([])
   const [commodities, setCommodities] = useState([])
+  const [gradesByHs, setGradesByHs] = useState({})
   const [countries, setCountries] = useState([])
   const [locations, setLocations] = useState({})
   const [editing, setEditing] = useState(null) // null = closed, 'new' = new listing, or the row being edited
@@ -29,6 +30,11 @@ export default function Listings({ kind, forOrg }) {
   useEffect(() => {
     load()
     supabase.from('commodities').select('*').eq('is_active', true).order('name').then(({ data }) => setCommodities(data ?? []))
+    supabase.from('commodity_grades').select('hs_code, grade_name, sort_order').order('sort_order').order('grade_name').then(({ data }) => {
+      const byHs = {}
+      for (const row of data ?? []) (byHs[row.hs_code] ??= []).push(row.grade_name)
+      setGradesByHs(byHs)
+    })
     supabase.from('countries').select('*').order('name').then(({ data }) => setCountries(data ?? []))
     supabase.from('locations').select('id, name, country').then(({ data }) => setLocations(Object.fromEntries((data ?? []).map((l) => [l.id, l]))))
   }, [org.id]) // eslint-disable-line
@@ -52,7 +58,7 @@ export default function Listings({ kind, forOrg }) {
       </div>
 
       {editing && <ListingForm key={editing === 'new' ? 'new' : editing.id} kind={kind} org={org} row={editing === 'new' ? null : editing}
-        commodities={commodities} countries={countries} onSaved={() => { setEditing(null); load() }} />}
+        commodities={commodities} countries={countries} gradesByHs={gradesByHs} onSaved={() => { setEditing(null); load() }} />}
       {err && <p className="text-sm text-red-700">{err}</p>}
 
       {rows.length === 0 && !editing && <div className="card text-sm text-navy/60">Nothing posted yet.</div>}
@@ -95,7 +101,7 @@ export default function Listings({ kind, forOrg }) {
   )
 }
 
-function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
+function ListingForm({ kind, org, row, commodities, countries, gradesByHs, onSaved }) {
   const isOffer = kind === 'offer'
   const [f, setF] = useState(() => ({
     hs_code: row?.hs_code ?? org.hs_codes?.[0] ?? '', grade: row?.grade ?? '', quantity_tonnes: row?.quantity_tonnes ?? '',
@@ -109,6 +115,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
   }))
   const product = commodities.find((c) => c.hs_code === f.hs_code) ?? row?.commodities
   const unit = product?.unit ?? 't'
+  const gradeOptions = gradesByHs[f.hs_code] ?? []
   const sellsForOthers = isOffer && ['trader', 'cooperative'].includes(org.entity_type)
   const [producers, setProducers] = useState([])
   useEffect(() => {
@@ -149,9 +156,7 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
           {commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name} (HS {c.hs_code})</option>)}
           {row && !commodities.some((c) => c.hs_code === row.hs_code) && <option value={row.hs_code}>{row.commodities?.name ?? row.hs_code}</option>}
         </select></div>
-      <div><label className="label">Grade</label>
-        <input className="input" list={`grades-${kind}`} value={f.grade} onChange={set('grade')} placeholder="Choose or type" />
-        <datalist id={`grades-${kind}`}>{(GRADE_SUGGESTIONS[f.hs_code] ?? []).map((g) => <option key={g} value={g} />)}</datalist></div>
+      <GradeCombobox kind={kind} value={f.grade} options={gradeOptions} onChange={(value) => setF({ ...f, grade: value })} />
       <div><label className="label">Quantity ({UNIT_LABEL[unit]})</label><input className="input" type="number" step="0.01" min="0.01" required value={f.quantity_tonnes} onChange={set('quantity_tonnes')} /></div>
       {isOffer
         ? <div><label className="label">Monthly capacity ({UNIT_SHORT[unit]})</label><input className="input" type="number" step="0.01" min="0.01" value={f.capacity} onChange={set('capacity')} placeholder="optional" /></div>
@@ -196,6 +201,49 @@ function ListingForm({ kind, org, row, commodities, countries, onSaved }) {
       {err && <p className="sm:col-span-4 text-sm text-red-700">{err}</p>}
       <div className="sm:col-span-4"><button className="btn-primary">{row ? 'Save changes' : `Post ${isOffer ? 'supply listing' : 'purchase offer'}`}</button></div>
     </form>
+  )
+}
+
+function GradeCombobox({ kind, value, options, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const listId = `grade-options-${kind}`
+  const filteredOptions = options.filter((grade) => grade.toLowerCase().includes(value.trim().toLowerCase()))
+  const choose = (grade) => { onChange(grade); setOpen(false); setActiveIndex(-1) }
+
+  function onKeyDown(e) {
+    if (e.key === 'ArrowDown' && options.length) {
+      e.preventDefault()
+      setOpen(true)
+      setActiveIndex((i) => Math.min(i + 1, filteredOptions.length - 1))
+    } else if (e.key === 'ArrowUp' && open && filteredOptions.length) {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && open && activeIndex >= 0 && filteredOptions[activeIndex]) {
+      e.preventDefault()
+      choose(filteredOptions[activeIndex])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+      setActiveIndex(-1)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <label className="label" htmlFor={`grade-${kind}`}>Grade</label>
+      <input id={`grade-${kind}`} className="input" role="combobox" aria-autocomplete="list" aria-expanded={open && filteredOptions.length > 0}
+        aria-controls={listId} aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+        value={value} onChange={(e) => { onChange(e.target.value); setOpen(true); setActiveIndex(-1) }}
+        onFocus={() => setOpen(options.length > 0)} onBlur={() => setOpen(false)} onKeyDown={onKeyDown}
+        placeholder={options.length ? 'Choose or type' : 'Type any grade'} />
+      {open && filteredOptions.length > 0 && <ul id={listId} role="listbox" className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-line bg-white py-1 shadow-lg">
+        {filteredOptions.map((grade, index) => (
+          <li id={`${listId}-${index}`} key={grade} role="option" aria-selected={index === activeIndex}
+            className={`cursor-pointer px-3 py-2 text-sm ${index === activeIndex ? 'bg-cream' : 'hover:bg-cream'}`}
+            onMouseDown={(e) => e.preventDefault()} onClick={() => choose(grade)}>{grade}</li>
+        ))}
+      </ul>}
+    </div>
   )
 }
 
@@ -311,25 +359,31 @@ const STATUS_LABEL = { proposed: 'Proposed', accepted: 'Accepted', in_transit: '
 // Deal pipeline: proposed (buyer's offer) → accepted (seller, optionally with terms) → in transit → delivered → completed, with ratings after delivery
 function Interests({ kind, actingOrg }) {
   const org = actingOrg
+  const { isAdmin } = useAuth()
   const [rows, setRows] = useState([])
   const [rated, setRated] = useState({})
   const [rating, setRating] = useState(null)
   const [err, setErr] = useState(null)
   const [termsFor, setTermsFor] = useState(null) // deal id whose "accept with terms" box is open
   const [terms, setTerms] = useState('')
+  const [cancelFor, setCancelFor] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
   const load = () => {
     supabase.from('interests')
-      .select('*, agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert))')
+      .select('*, cancelled_by_org:organisations!interests_cancelled_by_org_id_fkey(name), agent:organisations!interests_agent_org_id_fkey(name), officer:organisations!interests_network_officer_org_id_fkey(name), offers(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert), commodities(name)), requests(id, grade, quantity_tonnes, org_id, organisations(id, name, safety_alert))')
       .order('created_at', { ascending: false })
-      .then(({ data }) => setRows((data ?? []).filter((i) => i.offers?.org_id === org.id || i.requests?.org_id === org.id)))
+      .then(({ data }) => setRows((data ?? []).filter((i) => isAdmin || i.offers?.org_id === org.id || i.requests?.org_id === org.id)))
     supabase.from('ratings').select('deal_id').eq('rater_org_id', org.id).then(({ data }) => setRated(Object.fromEntries((data ?? []).map((r) => [r.deal_id, true]))))
   }
-  useEffect(() => { load() }, [org.id]) // eslint-disable-line
+  useEffect(() => { load() }, [org.id, isAdmin]) // eslint-disable-line
   const [reporting, setReporting] = useState(null)
-  async function act(id, action, sellerTerms) {
+  async function act(id, action, sellerTerms, reason) {
     setErr(null)
-    const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action, ...(sellerTerms ? { p_terms: sellerTerms } : {}) })
-    if (error) setErr(error.message); load()
+    const { error } = await supabase.rpc('advance_deal', { p_deal_id: id, p_action: action,
+      ...(sellerTerms !== undefined ? { p_terms: sellerTerms } : {}), ...(reason !== undefined ? { p_reason: reason } : {}) })
+    if (error) { setErr(error.message); load(); return false }
+    load()
+    return true
   }
   if (!rows.length) return null
   return (
@@ -342,11 +396,18 @@ function Interests({ kind, actingOrg }) {
           <tbody>
             {rows.map((i) => {
               const amSeller = i.offers?.org_id === org.id
+              const amBuyer = i.requests?.org_id === org.id
               const other = amSeller ? i.requests?.organisations : i.offers?.organisations
               // Buyer-first deals are answered by the seller; older deals are answered by whoever did not propose them
               const incoming = i.proposed_by_side
                 ? (i.proposed_by_side === 'buyer' ? amSeller : !amSeller)
                 : i.initiated_by !== org.id && i.agent_org_id !== org.id
+              const legacyProposal = i.status === 'proposed' && !i.proposed_by_side
+              const canWithdraw = i.status === 'proposed' && !legacyProposal && (amBuyer || isAdmin)
+              const canLegacyCancel = legacyProposal && (amBuyer || amSeller || isAdmin)
+              const needsCancelReason = i.status === 'accepted' || isAdmin
+              const canCancelAccepted = i.status === 'accepted' && (amBuyer || amSeller || isAdmin)
+              const cancelledBy = i.cancelled_by_org?.name ?? (i.cancelled_by_org_id ? (i.cancelled_by_org_id === org.id ? org.name : other?.name) : 'OXL staff')
               return (
                 <Fragment key={i.id}>
                   <tr className="border-t border-line align-top">
@@ -359,9 +420,10 @@ function Interests({ kind, actingOrg }) {
                     <td>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[i.status]}`}>{STATUS_LABEL[i.status] ?? i.status}</span>
                       {i.seller_terms && <div className="mt-1 max-w-[14rem] text-xs text-navy/60">Seller’s terms: {i.seller_terms}</div>}
+                      {i.status === 'cancelled' && <div className="mt-1 max-w-[20rem] whitespace-normal text-xs text-navy/70">Cancelled by {cancelledBy}{i.cancel_reason ? `: ${i.cancel_reason}` : ': no reason provided'}</div>}
                     </td>
                     <td className="space-x-2 whitespace-nowrap text-right">
-                      {i.status === 'proposed' && incoming && <>
+                      {i.status === 'proposed' && incoming && (amSeller || amBuyer) && <>
                         <button className="text-leaf" onClick={() => act(i.id, 'accept')}>Accept</button>
                         {amSeller && <button className="text-leaf" onClick={() => { setTermsFor(termsFor === i.id ? null : i.id); setTerms('') }}>Accept with terms</button>}
                         <button className="text-navy/50" onClick={() => act(i.id, 'decline')}>Decline</button></>}
@@ -369,7 +431,10 @@ function Interests({ kind, actingOrg }) {
                       {i.status === 'in_transit' && !amSeller && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
                       {i.status === 'delivered' && amSeller && !i.seller_confirmed_delivery_at && <button className="text-leaf" onClick={() => act(i.id, 'confirm_delivery')}>Confirm delivery</button>}
                       {['delivered', 'completed'].includes(i.status) && !rated[i.id] && <button className="text-terra" onClick={() => setRating({ deal: i, rated: other })}>Rate {amSeller ? 'buyer' : 'seller'}</button>}
-                      {['proposed', 'accepted'].includes(i.status) && <button className="text-navy/40" onClick={() => act(i.id, 'cancel')}>Cancel</button>}
+                      {(canWithdraw || canLegacyCancel || canCancelAccepted) && <button className="text-navy/50" onClick={() => {
+                        if (!needsCancelReason) act(i.id, 'cancel')
+                        else { setCancelFor(cancelFor === i.id ? null : i.id); setCancelReason('') }
+                      }}>{canWithdraw && !isAdmin ? 'Withdraw' : canLegacyCancel && !isAdmin ? 'Cancel' : 'Cancel deal'}</button>}
                       <button className="text-red-700/70" onClick={() => setReporting({ org: other, deal: i.id })}>Report</button>
                     </td>
                   </tr>
@@ -382,6 +447,21 @@ function Interests({ kind, actingOrg }) {
                             placeholder="e.g. 30% advance, balance against bill of lading; inspection at Mombasa" />
                           <button className="btn-primary" disabled={!terms.trim()} onClick={() => { act(i.id, 'accept', terms.trim()); setTermsFor(null); setTerms('') }}>Accept with these terms</button>
                           <button className="btn-ghost" onClick={() => { setTermsFor(null); setTerms('') }}>Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {cancelFor === i.id && needsCancelReason && (
+                    <tr className="bg-cream">
+                      <td colSpan={7} className="px-3 py-3">
+                        <label className="label" htmlFor={`cancel-reason-${i.id}`}>Cancellation reason (5–500 characters)</label>
+                        <textarea id={`cancel-reason-${i.id}`} className="input min-h-20" maxLength={500} value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)} placeholder="Explain why this deal is being cancelled" />
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <button className="btn-primary" disabled={cancelReason.trim().length < 5}
+                            onClick={async () => { if (await act(i.id, 'cancel', undefined, cancelReason.trim())) { setCancelFor(null); setCancelReason('') } }}>Confirm cancellation</button>
+                          <button className="btn-ghost" onClick={() => { setCancelFor(null); setCancelReason('') }}>Keep deal</button>
+                          <span className="text-xs text-navy/50">{cancelReason.length}/500</span>
                         </div>
                       </td>
                     </tr>

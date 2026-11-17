@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
 
-const TABS = { products: 'Products', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
+const TABS = { products: 'Products', grades: 'Grades', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
 
 export default function AdminReference() {
   const [tab, setTab] = useState('products')
@@ -22,6 +22,7 @@ export default function AdminReference() {
       {tab === 'routes' && <RouteTable />}
       {tab === 'locations' && <Locations />}
       {tab === 'certs' && <CertRules />}
+      {tab === 'grades' && <Grades />}
       {tab === 'sanctions' && <Sanctions />}
       {tab === 'products' && <Products />}
       {tab === 'activities' && <BusinessActivities />}
@@ -374,6 +375,73 @@ function Products() {
         </table>
       </div>
       <p className="text-xs text-navy/60">Hidden products are not offered in sign-up or new listings; existing listings keep working. Add the certificate rules for each new product under <b>Certificate rules</b>.</p>
+    </div>
+  )
+}
+
+function Grades() {
+  const [rows, setRows] = useState([])
+  const [commodities, setCommodities] = useState([])
+  const [hsCode, setHsCode] = useState('')
+  const [gradeName, setGradeName] = useState('')
+  const [msg, setMsg] = useState(null)
+  const load = async () => {
+    const [{ data: gradeRows, error }, { data: products }] = await Promise.all([
+      supabase.from('commodity_grades').select('hs_code, grade_name, sort_order').order('hs_code').order('sort_order').order('grade_name'),
+      supabase.from('commodities').select('hs_code, name').order('name'),
+    ])
+    if (error) setMsg({ err: error.message })
+    else setRows(gradeRows ?? [])
+    const productRows = products ?? []
+    setCommodities(productRows)
+    setHsCode((current) => current || productRows[0]?.hs_code || '')
+  }
+  useEffect(() => { load() }, [])
+  const selectedGrades = rows.filter((r) => r.hs_code === hsCode)
+
+  async function add(e) {
+    e.preventDefault()
+    setMsg(null)
+    const name = gradeName.trim()
+    if (!name || !hsCode) return
+    const sortOrder = Math.max(0, ...selectedGrades.map((r) => r.sort_order)) + 10
+    const { error } = await supabase.from('commodity_grades').insert({ hs_code: hsCode, grade_name: name, sort_order: sortOrder })
+    if (error) setMsg({ err: error.message })
+    else { setMsg({ ok: 'Grade added.' }); setGradeName(''); load() }
+  }
+
+  async function remove(row) {
+    setMsg(null)
+    const { error } = await supabase.from('commodity_grades').delete().eq('hs_code', row.hs_code).eq('grade_name', row.grade_name)
+    if (error) setMsg({ err: error.message })
+    else { setMsg({ ok: 'Grade removed.' }); load() }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={add} className="card grid gap-3 sm:grid-cols-4">
+        <h3 className="sm:col-span-4 font-semibold">Add a grade suggestion</h3>
+        <div className="sm:col-span-2"><label className="label">Commodity</label>
+          <select className="input" required value={hsCode} onChange={(e) => setHsCode(e.target.value)}>
+            {commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name} (HS {c.hs_code})</option>)}
+          </select></div>
+        <div className="sm:col-span-2"><label className="label">Grade name</label>
+          <input className="input" required value={gradeName} onChange={(e) => setGradeName(e.target.value)} placeholder="e.g. BP1" /></div>
+        <div className="sm:col-span-4 flex items-center gap-3"><button className="btn-primary" disabled={!commodities.length}>Add grade</button><Msg m={msg} /></div>
+      </form>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full min-w-[32rem] text-sm">
+          <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Commodity</th><th>Grade suggestion</th><th></th></tr></thead>
+          <tbody>{selectedGrades.map((r) => (
+            <tr key={`${r.hs_code}-${r.grade_name}`} className="border-t border-line">
+              <td className="px-4 py-2">{commodities.find((c) => c.hs_code === r.hs_code)?.name ?? r.hs_code}</td>
+              <td>{r.grade_name}</td>
+              <td className="pr-4 text-right"><button className="text-red-700 hover:underline" onClick={() => remove(r)}>Delete</button></td>
+            </tr>))}
+            {selectedGrades.length === 0 && <tr><td className="px-4 py-3 text-navy/60" colSpan="3">No grade suggestions for this commodity yet. Users can still type any grade.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

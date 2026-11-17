@@ -70,12 +70,3 @@ export const UNIT_LABEL = { t: 'tonnes', kg: 'kg', pieces: 'pieces', cartons: 'c
 export const UNIT_SHORT = { t: 't', kg: 'kg', pieces: 'pcs', cartons: 'cartons', bags: 'bags', litres: 'L', m3: 'm³', metres: 'm' }
 export const CATEGORY_LABEL = { farm: 'Farm produce', processed: 'Processed food and drinks', manufactured: 'Manufactured goods', mineral: 'Minerals and metals', other: 'Other' }
 export const TRANSPORT_LABEL = { any: 'Any', sea: 'Sea', road: 'Road', air: 'Air' }
-// Common grade names per commodity, offered as suggestions (users can still type their own)
-export const GRADE_SUGGESTIONS = {
-  '1801': ['Grade I', 'Grade II', 'Sub-standard'], '0801': ['RCN (raw)', 'W180', 'W240', 'W320', 'W450', 'Splits'],
-  '0901': ['AA', 'AB', 'PB', 'C', 'E', 'Robusta'], '0902': ['BP1', 'PF1', 'PD', 'D1', 'Fannings'],
-  '0804': ['Hass, size 14–24', 'Fuerte', 'Kent mango', 'Apple mango', 'MD2 pineapple'], '1515': ['Grade A (unrefined)', 'Grade B', 'Refined'],
-  '1207': ['Whitish 99/1/1', 'Mixed', 'Natural'], '1005': ['White maize, Grade 1', 'Yellow maize, Grade 1', 'Grade 2'],
-  '0713': ['Soybeans', 'Cowpeas', 'Green grams', 'Red kidney beans'], '1803': ['Natural cocoa liquor', 'Alkalised'],
-  '0603': ['Roses, 50–60 cm', 'Summer flowers'], '0910': ['Dried ginger, split', 'Fresh ginger', 'Turmeric fingers'],
-}
