@@ -23,8 +23,10 @@ export default function Admin() {
     await supabase.from('documents').update({ review_status: status, review_notes: notes, reviewed_by: user.id }).eq('id', d.id)
     load()
   }
-  async function view(d) {
-    const { data } = await supabase.storage.from('documents').createSignedUrl(d.storage_path, 300)
+  async function view(pathOrDoc) {
+    const path = typeof pathOrDoc === 'string' ? pathOrDoc : pathOrDoc?.storage_path
+    if (!path) return
+    const { data } = await supabase.storage.from('documents').createSignedUrl(path, 300)
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
   async function setTier(o, tier) {
@@ -44,7 +46,8 @@ export default function Admin() {
             <DocCard key={d.id} d={d}>
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-sm">
                 <span className="mr-auto text-navy/70">{d.organisations?.name} · {d.organisations?.country}</span>
-                <button className="btn-ghost" onClick={() => view(d)}>Open file</button>
+                <button className="btn-ghost" onClick={() => view(d.storage_path)}>Open file</button>
+                {d.back_file_path && <button className="btn-ghost" onClick={() => view(d.back_file_path)}>Open back</button>}
                 <button className="btn-ghost" onClick={() => supabase.functions.invoke('extract-document', { body: { document_id: d.id } }).then(load)}>Re-run AI</button>
                 <button className="btn-ghost text-red-700" onClick={() => review(d, 'rejected')}>Reject</button>
                 <button className="btn-primary" onClick={() => review(d, 'approved')}>Approve</button>

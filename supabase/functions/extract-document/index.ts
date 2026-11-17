@@ -56,7 +56,7 @@ Return ONLY a JSON object, no prose, with these keys (use null when a value is n
 }
 Do NOT return the date of birth, the full document number, the address or any other personal detail.
 The declared person is: EXPECTED_NAME (for the business ORG_NAME).`;
-const IDENTITY_TYPES = ["national_id", "representative_id"];
+const IDENTITY_TYPES = ["national_id", "driving_licence", "representative_id"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     });
     const { data: doc, error: docErr } = await asUser
-      .from("documents").select("id, org_id, doc_type, holder_name, storage_path, file_name, organisations(name)")
+      .from("documents").select("id, org_id, doc_type, holder_name, storage_path, back_file_path, file_name, organisations(name)")
       .eq("id", document_id).single();
     if (docErr || !doc) return json({ error: "Document not found or not yours" }, 404);
 
@@ -97,6 +97,23 @@ Deno.serve(async (req) => {
       ? { type: "document", source: { type: "base64", media_type: mediaType, data: b64 } }
       : { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } };
 
+    const supportBack = doc.back_file_path && ['national_id', 'driving_licence'].includes(doc.doc_type);
+    let backPart: unknown | null = null;
+    if (supportBack) {
+      const { data: backFile, error: backDlErr } = await admin.storage.from("documents").download(doc.back_file_path!);
+      if (backDlErr || !backFile) throw new Error("Could not download back file: " + backDlErr?.message);
+      const backBytes = new Uint8Array(await backFile.arrayBuffer());
+      if (backBytes.length > 20 * 1024 * 1024) throw new Error("Back file larger than 20 MB");
+      const backB64 = encodeBase64(backBytes);
+      const backName = doc.back_file_path.toLowerCase();
+      const backMediaType = backName.endsWith(".pdf") ? "application/pdf"
+        : backName.endsWith(".png") ? "image/png"
+        : backName.endsWith(".webp") ? "image/webp" : "image/jpeg";
+      backPart = backMediaType === "application/pdf"
+        ? { type: "document", source: { type: "base64", media_type: backMediaType, data: backB64 } }
+        : { type: "image", source: { type: "base64", media_type: backMediaType, data: backB64 } };
+    }
+
     // deno-lint-ignore no-explicit-any
     const orgName = (doc as any).organisations?.name ?? "unknown";
     const today = new Date().toISOString().slice(0, 10);
@@ -108,7 +125,12 @@ Deno.serve(async (req) => {
         const { data: p } = await admin.from("profiles").select("full_name").eq("org_id", doc.org_id).not("full_name", "is", null).limit(1).maybeSingle();
         expected = p?.full_name ?? orgName;
       }
-      prompt = ID_PROMPT.replace("TODAY", today).replaceAll("EXPECTED_NAME", expected ?? "unknown").replace("ORG_NAME", orgName);
+      prompt = ID_PROMPT
+        .replace("TODAY", today)
+        .replaceAll("EXPECTED_NAME", expected ?? "unknown")
+        .replace("ORG_NAME", orgName);
+      if (supportBack) prompt += "\nIf both sides are provided, compare the front and back and flag any mismatch or disagreement between the two sides. If the two sides do not agree, return that in red_flags.";
+      else if (['national_id', 'driving_licence'].includes(doc.doc_type)) prompt += "\nThe document appears to be a two-sided identity document, but only one side was supplied. Flag 'only one side shown' in red_flags.";
     } else {
       prompt = PROMPT.replace("TODAY", today).replace("ORG_NAME", orgName);
     }
@@ -123,7 +145,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1024,
-        messages: [{ role: "user", content: [filePart, { type: "text", text: prompt }] }],
+        messages: [{ role: "user", content: backPart ? [filePart, backPart, { type: "text", text: prompt }] : [filePart, { type: "text", text: prompt }] }],
       }),
     });
     if (!res.ok) throw new Error(`Claude API ${res.status}: ${await res.text()}`);
@@ -135,6 +157,10 @@ Deno.serve(async (req) => {
     if (IDENTITY_TYPES.includes(doc.doc_type)) {
       // Keep at most the last 4 characters of the number, whatever the model returned
       if (parsed.id_number_last4) parsed.id_number_last4 = String(parsed.id_number_last4).replace(/\s/g, "").slice(-4);
+      if (['national_id', 'driving_licence'].includes(doc.doc_type) && !doc.back_file_path) {
+        parsed.red_flags = Array.isArray(parsed.red_flags) ? parsed.red_flags : [];
+        if (!parsed.red_flags.includes('only one side shown')) parsed.red_flags.push('only one side shown');
+      }
       for (const k of ["date_of_birth", "dob", "id_number", "document_number", "address"]) delete parsed[k];
     }
     const extracted = { ...parsed, model: MODEL, extracted_at: new Date().toISOString() };

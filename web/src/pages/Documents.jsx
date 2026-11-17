@@ -10,27 +10,36 @@ export default function Documents({ forOrg }) {
   const types = docTypesFor(org)
   const [type, setType] = useState(types[0])
   const [file, setFile] = useState(null)
+  const [backFile, setBackFile] = useState(null)
   const [holder, setHolder] = useState({ name: '', role: 'Director' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const needsBack = ['national_id', 'driving_licence'].includes(type)
 
   const load = () => supabase.from('documents').select('*').eq('org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setDocs(data ?? []))
   useEffect(() => { load() }, [org.id]) // eslint-disable-line
 
   async function upload(e) {
     e.preventDefault(); if (!file) return
+    if (needsBack && !backFile) { setErr('Please upload the back of the document.'); return }
     setBusy(true); setErr(null)
     try {
       const identity = IDENTITY_TYPES.includes(type)
-      const path = `${org.id}/${identity ? 'identity/' : ''}${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('documents').upload(path, file)
-      if (upErr) throw upErr
+      const frontPath = `${org.id}/${identity ? 'identity/' : ''}${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, '_')}`
+      const { error: frontErr } = await supabase.storage.from('documents').upload(frontPath, file)
+      if (frontErr) throw frontErr
+      let backPath = null
+      if (backFile) {
+        backPath = `${org.id}/${identity ? 'identity/' : ''}${crypto.randomUUID()}-back-${backFile.name.replace(/[^\w.-]+/g, '_')}`
+        const { error: backErr } = await supabase.storage.from('documents').upload(backPath, backFile)
+        if (backErr) throw backErr
+      }
       const { data: { user } } = await supabase.auth.getUser()
       const { data: doc, error: insErr } = await supabase.from('documents')
-        .insert({ org_id: org.id, doc_type: type, file_name: file.name, storage_path: path, uploaded_by: user.id,
+        .insert({ org_id: org.id, doc_type: type, file_name: file.name, storage_path: frontPath, back_file_path: backPath, uploaded_by: user.id,
           ...(type === 'representative_id' ? { holder_name: holder.name.trim(), holder_role: holder.role } : {}) }).select().single()
       if (insErr) throw insErr
-      setFile(null); setHolder({ name: '', role: 'Director' }); e.target.reset(); load()
+      setFile(null); setBackFile(null); setHolder({ name: '', role: 'Director' }); e.target.reset(); load()
       // AI extraction runs in the background; the list refreshes when it finishes
       supabase.functions.invoke('extract-document', { body: { document_id: doc.id } }).finally(load)
     } catch (x) { setErr(x.message) } finally { setBusy(false) }
@@ -50,9 +59,19 @@ export default function Documents({ forOrg }) {
           <div><label className="label">Role</label><input className="input" value={holder.role} onChange={(e) => setHolder({ ...holder, role: e.target.value })} placeholder="e.g. Director" /></div>
         </>}
         {IDENTITY_TYPES.includes(type) && <p className="text-xs text-navy/60">ID documents are seen only by you, your agent and OXL staff, never by lenders.</p>}
-        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
+        <div>
+          <label className="label">Front of document</label>
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
+        </div>
+        {IDENTITY_TYPES.includes(type) && (
+          <div>
+            <label className="label">Back of document</label>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setBackFile(e.target.files?.[0] ?? null)} className="text-sm" />
+            <p className="mt-1 text-xs text-navy/60">{needsBack ? 'Required for national IDs and driving licences.' : 'Optional for single-sided identity documents.'}</p>
+          </div>
+        )}
         {err && <p className="text-sm text-red-700">{err}</p>}
-        <button className="btn-primary w-full" disabled={busy || !file}>{busy ? 'Uploading…' : 'Upload'}</button>
+        <button className="btn-primary w-full" disabled={busy || !file || (needsBack && !backFile)}>{busy ? 'Uploading…' : 'Upload'}</button>
         {org.role !== 'agent' && !forOrg && <Link to={`/report/${org.id}`} className="block text-center text-sm text-terra">See my risk report →</Link>}
       </form>
       <div className="space-y-3">

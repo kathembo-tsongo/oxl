@@ -11,15 +11,15 @@ export const TIER_LABEL = { self_declared: 'Self-declared', documents_checked: '
 export const DOC_LABEL = {
   business_registration: 'Business registration', export_licence: 'Export licence', tax_certificate: 'Tax compliance certificate',
   quality_certificate: 'Quality certificate', phytosanitary_certificate: 'Phytosanitary certificate', invoice: 'Past invoice',
-  national_id: 'National ID or passport', broker_licence: 'Broker licence', code_of_conduct: 'Signed OXL code of conduct',
+  national_id: 'National ID', driving_licence: 'Driving licence', broker_licence: 'Broker licence', code_of_conduct: 'Signed OXL code of conduct',
   member_list: 'Member / farmer list', representative_id: 'ID of a director or representative', other: 'Other',
 }
 // Identity documents: never shown to lenders; stored under '<org id>/identity/…'
-export const IDENTITY_TYPES = ['national_id', 'representative_id']
+export const IDENTITY_TYPES = ['national_id', 'driving_licence', 'representative_id']
 // Which document types each kind of organisation is asked for
 export const DOC_TYPES_FOR = {
-  agent: ['national_id', 'broker_licence', 'business_registration', 'code_of_conduct', 'other'],
-  default: ['business_registration', 'representative_id', 'export_licence', 'tax_certificate', 'quality_certificate', 'phytosanitary_certificate', 'invoice', 'other'],
+  agent: ['national_id', 'driving_licence', 'broker_licence', 'business_registration', 'code_of_conduct', 'other'],
+  default: ['business_registration', 'representative_id', 'national_id', 'driving_licence', 'export_licence', 'tax_certificate', 'quality_certificate', 'phytosanitary_certificate', 'invoice', 'other'],
   // by how a seller or buyer trades (organisations.entity_type)
   individual: ['national_id', 'export_licence', 'quality_certificate', 'phytosanitary_certificate', 'invoice', 'other'],
   enterprise: ['business_registration', 'representative_id', 'export_licence', 'tax_certificate', 'quality_certificate', 'phytosanitary_certificate', 'invoice', 'other'],
