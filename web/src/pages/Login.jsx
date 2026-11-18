@@ -44,11 +44,11 @@ export default function Login() {
 
       {/* Desktop: story panel with the trade map */}
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] text-white md:flex md:flex-col md:justify-between">
-        <TradeMap className="pointer-events-none absolute -right-28 top-1/2 h-[118%] -translate-y-1/2 opacity-95" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-[#0c1426] via-[#0c1426]/80 to-transparent" />
+        <TradeMap className="pointer-events-none absolute right-6 top-8 h-[56%] max-h-[600px] xl:right-12" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[#0c1426] via-[#0c1426]/90 to-transparent" />
         <div className="relative z-10 flex items-center gap-2 p-10 pb-0"><Logo /><span className="text-xl font-semibold tracking-wide">OXL</span></div>
         <div className="relative z-10 p-10 pt-0 xl:p-14 xl:pt-0">
-          <h1 className="max-w-xl text-4xl font-semibold leading-tight xl:text-5xl">Verified trade partners and finance for African businesses.</h1>
+          <h1 className="max-w-xl text-3xl font-semibold leading-tight xl:text-4xl">Verified trade partners and finance for African businesses.</h1>
           <p className="mt-4 max-w-lg text-white/70">OXL matches sellers and buyers across borders, verifies who they are, and gives financiers a clear risk picture. Now in Kenya and Ghana.</p>
           <ul className="mt-7 grid max-w-xl gap-4">
             {POINTS.map((p) => (
