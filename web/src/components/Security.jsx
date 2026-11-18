@@ -117,7 +117,7 @@ export function NewPassword({ onDone }) {
 
 function AuthShell({ title, text, children }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <div className="flex min-h-dvh items-center justify-center p-4 sm:p-6">
       <div className="card w-full max-w-md space-y-4">
         <div className="flex items-center gap-2"><svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4 28 16 16 28 4 16z" fill="#A3472A" /></svg><span className="font-serif text-lg font-semibold">OXL</span></div>
         <div><h2 className="text-2xl font-semibold">{title}</h2><p className="mt-1 text-sm text-navy/60">{text}</p></div>

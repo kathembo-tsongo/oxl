@@ -12,7 +12,7 @@ export default function LocationMap({ lat, lon, accuracy, onPick, height = 260 }
   pick.current = onPick
 
   useEffect(() => {
-    const m = L.map(box.current, { scrollWheelZoom: false }).setView(lat != null ? [lat, lon] : [2, 20], lat != null ? 15 : 3)
+    const m = L.map(box.current, { scrollWheelZoom: false, dragging: !L.Browser.mobile }).setView(lat != null ? [lat, lon] : [2, 20], lat != null ? 15 : 3)
     const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' })
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' })
