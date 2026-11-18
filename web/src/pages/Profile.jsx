@@ -5,6 +5,7 @@ import { supabase, ROLE_LABEL, CONSENT_LABEL, ENTITY_LABEL, ENTITY_HINT } from '
 import { useAuth } from '../App'
 import { TierBadge } from '../components/Badges'
 import BusinessCategorySelect from '../components/BusinessCategorySelect'
+import TownInput from '../components/TownInput'
 import IdentityCard from '../components/IdentityCard'
 import LocationCard from '../components/LocationCard'
 import { SecurityCard } from '../components/Security'
@@ -58,7 +59,7 @@ function OrgDetails() {
     <form onSubmit={save} className="card grid gap-4 sm:grid-cols-2">
       <h3 className="sm:col-span-2 text-lg font-semibold">Profile details</h3>
       <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={set('name')} /></div>
-      <div><label className="label">City / town</label><input className="input" value={f.city} onChange={set('city')} /></div>
+      <div><label className="label" htmlFor="town">City / town</label><TownInput id="town" country={org.country} value={f.city} onChange={(v) => setF({ ...f, city: v })} /></div>
       <div><label className="label">Registration number</label><input className="input" value={f.registration_no} onChange={set('registration_no')} /></div>
       <div><label className="label">{org.role === 'agent' ? 'Agent since' : 'Year established'}</label><input className="input" type="number" min="1900" max="2100" value={f.year_established} onChange={set('year_established')} /></div>
       <div><label className="label">Country</label><input className="input bg-cream" value={org.country} disabled /></div>

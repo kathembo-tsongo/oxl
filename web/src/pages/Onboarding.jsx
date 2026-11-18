@@ -3,6 +3,8 @@ import { supabase, ROLE_LABEL, ENTITY_LABEL, ENTITY_HINT } from '../supabase'
 import { useAuth } from '../App'
 import { INVITE_KEY } from './Invite'
 import BusinessCategorySelect from '../components/BusinessCategorySelect'
+import CountrySelect from '../components/CountrySelect'
+import TownInput from '../components/TownInput'
 
 const ROLE_HINT = {
   exporter: 'You sell goods to buyers in other countries',
@@ -25,7 +27,7 @@ export default function Onboarding() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
 
   useEffect(() => {
-    supabase.from('countries').select('*').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries(data ?? []))
+    supabase.from('countries').select('*').order('is_pilot', { ascending: false }).order('name').then(({ data }) => setCountries((data ?? []).filter((c) => c.is_african)))
     supabase.from('commodities').select('*').eq('is_active', true).order('name').then(({ data }) => setCommodities(data ?? []))
   }, [])
 
@@ -103,11 +105,9 @@ export default function Onboarding() {
         )}
         <div className="sm:col-span-2"><label className="label">{agent ? 'Agent or business name' : f.entity_type === 'individual' && business ? 'Your trading name (or your full name)' : 'Organisation name'}</label><input className="input" required value={f.name} onChange={set('name')} /></div>
         <div><label className="label">Country</label>
-          <select className="input" value={f.country} onChange={set('country')}>
-            {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-          </select>
+          <CountrySelect value={f.country} countries={countries} onChange={(code) => setF({ ...f, country: code, city: '', business_category_id: null })} />
         </div>
-        <div><label className="label">City / town</label><input className="input" value={f.city} onChange={set('city')} /></div>
+        <div><label className="label" htmlFor="town">City / town</label><TownInput id="town" country={f.country} value={f.city} onChange={(v) => setF((p) => ({ ...p, city: v }))} /></div>
         <div><label className="label">{agent ? 'Business registration or broker licence no. (if any)' : f.entity_type === 'individual' ? 'Registration number (if any)' : f.entity_type === 'trader' ? 'Registration or broker licence no.' : 'Registration number'}</label><input className="input" value={f.registration_no} onChange={set('registration_no')} placeholder="e.g. BRS / ORC number" /></div>
         <div><label className="label">{agent ? 'Year you started as an agent' : 'Year established'}</label><input className="input" type="number" min="1900" max="2100" value={f.year} onChange={set('year')} placeholder="e.g. 2021" /></div>
         <div className="sm:col-span-2"><label className="label" htmlFor="activity">Main business activity</label>
