@@ -36,6 +36,7 @@ export default function Layout({ children }) {
             {isAdmin && <NavLink to="/admin" end className={link}>Verification</NavLink>}
             {isAdmin && <NavLink to="/admin/reference" className={link}>Reference data</NavLink>}
             {isAdmin && <NavLink to="/admin/prospects" className={link}>Prospects</NavLink>}
+            {isAdmin && <NavLink to="/admin/oversight" className={link}>Oversight</NavLink>}
             {isAdmin && <NavLink to="/admin/safety" className={link}>Safety</NavLink>}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
