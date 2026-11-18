@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 import TradeMap from '../components/TradeMap'
+import Logo from '../components/Logo'
 
 const POINTS = [
   { t: 'Verified partners', d: 'Identity and documents checked, with a trust level you can see.', i: 'M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3zm-3 9l2 2 4-4' },
@@ -8,8 +9,6 @@ const POINTS = [
   { t: 'A clear risk picture for lenders', d: 'Financiers see who they are lending to, before they decide.', i: 'M4 19V9m6 10V5m6 14v-7m4 7H2' },
 ]
 const GOODS = ['Cocoa', 'Coffee', 'Tea', 'Cashew', 'Shea', 'Sesame', 'Copper']
-
-const Logo = ({ size = 32 }) => <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 28 16 16 28 4 16z" fill="#C2583A" /></svg>
 
 export default function Login() {
   const [mode, setMode] = useState('signin')
@@ -38,7 +37,7 @@ export default function Login() {
     <div className="min-h-dvh md:grid md:grid-cols-[1.15fr_1fr]">
       {/* Phone: short banner */}
       <header className="bg-gradient-to-br from-navy to-[#0f182b] px-6 py-7 text-white md:hidden">
-        <div className="flex items-center gap-2"><Logo size={26} /><span className="text-lg font-semibold tracking-wide">OXL</span></div>
+        <Logo size={28} variant="dark" />
         <h1 className="mt-4 text-2xl font-semibold leading-snug">Verified trade partners and finance for African businesses.</h1>
       </header>
 
@@ -46,7 +45,7 @@ export default function Login() {
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] text-white md:flex md:flex-col md:justify-between">
         <TradeMap className="pointer-events-none absolute right-6 top-8 h-[56%] max-h-[600px] xl:right-12" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[#0c1426] via-[#0c1426]/90 to-transparent" />
-        <div className="relative z-10 flex items-center gap-2 p-10 pb-0"><Logo /><span className="text-xl font-semibold tracking-wide">OXL</span></div>
+        <div className="relative z-10 p-10 pb-0"><Logo size={36} variant="dark" /></div>
         <div className="relative z-10 p-10 pt-0 xl:p-14 xl:pt-0">
           <h1 className="max-w-xl text-3xl font-semibold leading-tight xl:text-4xl">Verified trade partners and finance for African businesses.</h1>
           <p className="mt-4 max-w-lg text-white/70">OXL matches sellers and buyers across borders, verifies who they are, and gives financiers a clear risk picture. Now in Kenya and Ghana.</p>

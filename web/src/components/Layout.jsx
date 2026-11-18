@@ -4,6 +4,7 @@ import { useAuth } from '../App'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { TierBadge } from './Badges'
 import { useInstallPrompt } from '../pwa'
+import { LogoMark } from './Logo'
 
 export default function Layout({ children }) {
   const { org, isAdmin } = useAuth()
@@ -24,7 +25,7 @@ export default function Layout({ children }) {
       <header className="bg-navy text-white">
         <div className="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 mr-4">
-            <svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4 28 16 16 28 4 16z" fill="#A3472A" /></svg>
+            <LogoMark size={24} variant="dark" />
             <span className="font-serif text-lg font-semibold">OXL</span>
           </div>
           <nav className="flex flex-wrap gap-1">

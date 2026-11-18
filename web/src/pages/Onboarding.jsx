@@ -9,6 +9,7 @@ import YearSelect from '../components/YearSelect'
 import CommodityPicker from '../components/CommodityPicker'
 import PhoneInput from '../components/PhoneInput'
 import TradeMap from '../components/TradeMap'
+import Logo from '../components/Logo'
 
 const ROLE_HINT = {
   exporter: 'You sell goods to buyers in other countries',
@@ -106,10 +107,7 @@ export default function Onboarding() {
       <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] p-6 text-white sm:p-8">
         <TradeMap className="pointer-events-none absolute -right-8 -top-8 h-72 opacity-30 sm:h-96" />
         <div className="relative max-w-lg">
-          <div className="flex items-center gap-2">
-            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 28 16 16 28 4 16z" fill="#C2583A" /></svg>
-            <span className="text-lg font-semibold tracking-wide">OXL</span>
-          </div>
+          <Logo size={28} variant="dark" />
           <h1 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">Set up your profile</h1>
           <p className="mt-2 text-white/70">It takes about two minutes. You start as <b className="text-white">self-declared</b>. Uploading documents and an OXL check raise your trust level, which other users see.</p>
           <ol className="mt-5 flex flex-wrap gap-2" aria-label="Trust levels">
