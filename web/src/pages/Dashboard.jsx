@@ -17,14 +17,71 @@ export default function Dashboard() {
 
 function NextStep() {
   const { org } = useAuth()
-  if (org.verification_tier !== 'self_declared') return null
+  const [s, setS] = useState(null)
+  const exporter = org.role === 'exporter'
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const [idr, docs, loc, list] = await Promise.all([
+        supabase.rpc('identity_requirement', { p_org: org.id }),
+        supabase.from('documents').select('doc_type, review_status').eq('org_id', org.id),
+        supabase.from('org_locations').select('org_id, reviewed_at').eq('org_id', org.id).maybeSingle(),
+        supabase.from(exporter ? 'offers' : 'requests').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
+      ])
+      if (!live) return
+      const id = (idr.data ?? [])[0]
+      const other = (docs.data ?? []).filter((d) => !['national_id', 'representative_id'].includes(d.doc_type) && d.review_status !== 'rejected')
+      setS({ id, other: other.length, loc: loc.data, listed: list.count ?? 0 })
+    })()
+    return () => { live = false }
+  }, [org.id, exporter])
+
+  if (!s) return null
+  const idDone = !!s.id && s.id.uploaded >= s.id.required
+  const steps = [
+    { key: 'id', done: idDone, title: s.id?.required === 2 ? 'Upload two director or representative IDs' : 'Upload your ID',
+      note: s.id ? `${s.id.uploaded} of ${s.id.required} uploaded${s.id.approved ? `, ${s.id.approved} approved by OXL` : ''}` : 'National ID or passport', to: '/profile', cta: 'Open profile' },
+    { key: 'loc', done: !!s.loc, title: 'Pin your business location',
+      note: s.loc ? (s.loc.reviewed_at ? 'Location checked by OXL' : 'Pinned, waiting for OXL to check it') : 'Shown only to you, your agent and OXL staff', to: '/profile', cta: 'Pin on map' },
+    { key: 'docs', done: s.other > 0, title: 'Upload your registration and export documents',
+      note: s.other > 0 ? `${s.other} uploaded` : 'Registration certificate, licences and similar', to: '/documents', cta: 'Upload documents' },
+    { key: 'list', done: s.listed > 0, title: exporter ? 'Post your first offer' : 'Post your first request',
+      note: s.listed > 0 ? `${s.listed} posted` : 'Add it below on this page', to: null, cta: null },
+  ]
+  const done = steps.filter((x) => x.done).length
+
+  if (done === steps.length && org.verification_tier !== 'self_declared') {
+    return <div className="mb-6 flex items-center gap-2 rounded-xl border border-leaf/30 bg-leaf/5 p-3 text-sm"><span className="font-medium text-leaf">✓ You are verified.</span><TierBadge tier={org.verification_tier} /></div>
+  }
+
   return (
-    <div className="mb-6 rounded-xl border border-terra/30 bg-terra/5 p-4 text-sm">
-      <b>Raise your verification tier.</b> Buyers and financiers rank verified firms higher.{' '}
-      <Link to="/documents" className="font-medium text-terra underline">Upload your registration and export documents →</Link>
-    </div>
+    <section className="card mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Get verified</h2>
+          <p className="text-sm text-navy/60">{done === steps.length ? 'All steps done. OXL staff will review your business and raise your trust level.' : 'Buyers and financiers rank verified businesses higher. Complete these steps:'}</p>
+        </div>
+        <div className="text-sm font-medium tabular-nums">{done} of {steps.length}</div>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-leaf transition-all" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+      <ul className="mt-3 divide-y divide-line">
+        {steps.map((x, i) => (
+          <li key={x.key} className="flex items-center gap-3 py-3">
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${x.done ? 'bg-leaf text-white' : 'border border-line bg-white text-navy/60'}`}>{x.done ? '✓' : i + 1}</span>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-sm font-medium ${x.done ? 'text-navy/60 line-through' : ''}`}>{x.title}</span>
+              <span className="block text-xs text-navy/60">{x.note}</span>
+            </span>
+            {!x.done && x.to && <Link to={x.to} className="btn-ghost shrink-0 !px-3 !py-1.5">{x.cta}</Link>}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
+
+// GetVerified: four-step checklist above (kept under the NextStep name used by the dashboard).
 
 function FinancierHome() {
   const { org } = useAuth()
