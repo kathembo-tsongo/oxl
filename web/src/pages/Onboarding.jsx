@@ -7,6 +7,7 @@ import YearSelect from '../components/YearSelect'
 import CountrySelect from '../components/CountrySelect'
 import TownInput from '../components/TownInput'
 import CommodityPicker from '../components/CommodityPicker'
+import PhoneInput from '../components/PhoneInput'
 
 const ROLE_HINT = {
   exporter: 'You sell goods to buyers in other countries',
@@ -142,7 +143,7 @@ export default function Onboarding() {
           </>
         )}
         <div><label className="label">Your name</label><input className="input" required value={f.full_name} onChange={set('full_name')} /></div>
-        <div><label className="label">Phone / WhatsApp</label><input className="input" value={f.phone} onChange={set('phone')} placeholder="+254… / +233…" /></div>
+        <div><label className="label">Phone / WhatsApp</label><PhoneInput country={f.country} countries={countries} value={f.phone} onChange={(v) => setF((p) => ({ ...p, phone: v }))} /></div>
         {err && <p className="sm:col-span-2 text-sm text-red-700">{err}</p>}
         <div className="sm:col-span-2"><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : agent ? 'Register as an agent' : 'Create profile'}</button></div>
         <p className="sm:col-span-2 text-xs text-navy/60">Next, on your <b>Profile</b> page: upload {agent || (business && ['individual', 'trader'].includes(f.entity_type)) ? 'your national ID or passport' : 'the national ID or passport of two directors or representatives'}, and pin your business location on the map. OXL checks both before raising your trust level.</p>
