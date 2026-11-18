@@ -130,6 +130,7 @@ export default function Onboarding() {
       {/* Welcome banner */}
       <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] p-6 text-white sm:p-8">
         <TradeMap className="pointer-events-none absolute -right-8 -top-8 h-72 opacity-30 sm:h-96" />
+        <button type="button" onClick={() => supabase.auth.signOut()} className="absolute right-4 top-4 z-10 rounded-lg px-3 py-1.5 text-xs font-medium text-white/80 ring-1 ring-white/25 hover:bg-white/10 hover:text-white">Sign out</button>
         <div className="relative max-w-lg">
           <Logo size={28} variant="dark" />
           <h1 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">Set up your profile</h1>
