@@ -10,6 +10,16 @@ const POINTS = [
 ]
 const GOODS = ['Cocoa', 'Coffee', 'Tea', 'Cashew', 'Shea', 'Sesame', 'Copper']
 
+function EyeIcon({ off }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {off && <path d="M4 4l16 16" />}
+    </svg>
+  )
+}
+
 export default function Login() {
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
@@ -78,8 +88,8 @@ export default function Login() {
           {mode !== 'reset' && (
             <div><label className="label" htmlFor="password">Password</label>
               <div className="relative">
-                <input id="password" className="input pr-16" type={show ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
-                <button type="button" onClick={() => setShow(!show)} className="absolute inset-y-0 right-2 px-2 text-xs font-medium text-navy/60 hover:text-navy" aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
+                <input id="password" className="input pr-11" type={show ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="button" onClick={() => setShow(!show)} className="absolute inset-y-0 right-1 flex items-center px-2.5 text-navy/50 hover:text-navy" aria-label={show ? 'Hide password' : 'Show password'}><EyeIcon off={show} /></button>
               </div>
               {mode === 'signup' && <p className="mt-1 text-xs text-navy/50">At least 8 characters.</p>}
             </div>
