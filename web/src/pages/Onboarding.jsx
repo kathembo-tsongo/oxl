@@ -3,6 +3,7 @@ import { supabase, ROLE_LABEL, ENTITY_LABEL, ENTITY_HINT } from '../supabase'
 import { useAuth } from '../App'
 import { INVITE_KEY } from './Invite'
 import BusinessCategorySelect from '../components/BusinessCategorySelect'
+import YearSelect from '../components/YearSelect'
 import CountrySelect from '../components/CountrySelect'
 import TownInput from '../components/TownInput'
 
@@ -109,7 +110,7 @@ export default function Onboarding() {
         </div>
         <div><label className="label" htmlFor="town">City / town</label><TownInput id="town" country={f.country} value={f.city} onChange={(v) => setF((p) => ({ ...p, city: v }))} /></div>
         <div><label className="label">{agent ? 'Business registration or broker licence no. (if any)' : f.entity_type === 'individual' ? 'Registration number (if any)' : f.entity_type === 'trader' ? 'Registration or broker licence no.' : 'Registration number'}</label><input className="input" value={f.registration_no} onChange={set('registration_no')} placeholder="e.g. BRS / ORC number" /></div>
-        <div><label className="label">{agent ? 'Year you started as an agent' : 'Year established'}</label><input className="input" type="number" min="1900" max="2100" value={f.year} onChange={set('year')} placeholder="e.g. 2021" /></div>
+        <div><label className="label">{agent ? 'Year you started as an agent' : 'Year established'}</label><YearSelect value={f.year} onChange={(v) => setF({ ...f, year: v })} /></div>
         <div className="sm:col-span-2"><label className="label" htmlFor="activity">Main business activity</label>
           <BusinessCategorySelect id="activity" country={f.country} required value={f.business_category_id} onChange={(v) => setF({ ...f, business_category_id: v })} /></div>
         <div className="sm:col-span-2"><label className="label">{agent ? 'Your services (optional)' : 'More about what you do (optional)'}</label><textarea className="input" rows={2} value={f.description} onChange={set('description')} /></div>

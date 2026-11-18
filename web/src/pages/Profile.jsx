@@ -5,6 +5,7 @@ import { supabase, ROLE_LABEL, CONSENT_LABEL, ENTITY_LABEL, ENTITY_HINT } from '
 import { useAuth } from '../App'
 import { TierBadge } from '../components/Badges'
 import BusinessCategorySelect from '../components/BusinessCategorySelect'
+import YearSelect from '../components/YearSelect'
 import TownInput from '../components/TownInput'
 import IdentityCard from '../components/IdentityCard'
 import LocationCard from '../components/LocationCard'
@@ -61,7 +62,7 @@ function OrgDetails() {
       <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={set('name')} /></div>
       <div><label className="label" htmlFor="town">City / town</label><TownInput id="town" country={org.country} value={f.city} onChange={(v) => setF({ ...f, city: v })} /></div>
       <div><label className="label">Registration number</label><input className="input" value={f.registration_no} onChange={set('registration_no')} /></div>
-      <div><label className="label">{org.role === 'agent' ? 'Agent since' : 'Year established'}</label><input className="input" type="number" min="1900" max="2100" value={f.year_established} onChange={set('year_established')} /></div>
+      <div><label className="label">{org.role === 'agent' ? 'Agent since' : 'Year established'}</label><YearSelect value={f.year_established} onChange={(v) => setF({ ...f, year_established: v })} /></div>
       <div><label className="label">Country</label><input className="input bg-cream" value={org.country} disabled /></div>
       {['exporter', 'importer'].includes(org.role) && (
         <div className="sm:col-span-2"><label className="label">I {org.role === 'exporter' ? 'sell' : 'buy'} as</label>
