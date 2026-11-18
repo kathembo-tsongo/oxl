@@ -118,7 +118,7 @@ function PartnerHome() {
       )}
       <section>
         <h2 className="text-2xl font-semibold">Your members</h2>
-        <p className="text-sm text-navy/60">By country, type and verification level. <Link to="/directory" className="text-terra underline">Open the database</Link> to find others.</p>
+        <p className="text-sm text-navy/60">By country, type and verification level. <Link to="/database" className="text-terra underline">Open the database</Link> to find others.</p>
         {confirmed.length === 0 ? <div className="card mt-4 text-sm text-navy/60">No confirmed members yet. Businesses can name you as their association on their Profile page.</div> : (
           <>
             <table className="card mt-4 w-full text-sm">

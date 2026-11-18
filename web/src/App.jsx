@@ -80,6 +80,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={isAdmin && !org ? <Navigate to="/admin" /> : <Dashboard />} />
             <Route path="/directory" element={<Directory />} />
+            <Route path="/database" element={<Directory />} />
             <Route path="/report/:orgId" element={<RiskReport />} />
             <Route path="/documents" element={org ? <Documents /> : <Navigate to="/admin" />} />
             <Route path="/finance" element={org ? <Finance /> : <Navigate to="/admin" />} />

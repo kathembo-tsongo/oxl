@@ -29,7 +29,7 @@ export default function Layout({ children }) {
           </div>
           <nav className="flex flex-wrap gap-1">
             {org && <NavLink to="/" end className={link}>Dashboard</NavLink>}
-            <NavLink to="/directory" className={link}>Database</NavLink>
+            <NavLink to="/database" className={link}>Database</NavLink>
             {org && <NavLink to="/documents" className={link}>Documents</NavLink>}
             {trader && <NavLink to="/finance" className={link}>Finance</NavLink>}
             {org && <NavLink to="/profile" className={link}>Profile</NavLink>}

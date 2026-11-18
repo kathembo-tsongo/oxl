@@ -131,7 +131,7 @@ function OrgPanel({ o, onChanged }) {
     setMsg(null)
     if (on && !reason.trim()) { setMsg({ err: 'Give a reason for the suspension.' }); return }
     const { error } = await supabase.from('organisations').update({ is_suspended: on, suspended_reason: on ? reason : null }).eq('id', o.id)
-    setMsg(error ? { err: error.message } : { ok: on ? 'Suspended. It no longer appears in the directory or in matching.' : 'Reinstated.' }); onChanged()
+    setMsg(error ? { err: error.message } : { ok: on ? 'Suspended. It no longer appears in the database or in matching.' : 'Reinstated.' }); onChanged()
   }
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value })
 
@@ -180,7 +180,7 @@ function OrgPanel({ o, onChanged }) {
       </div>
       <div>
         <h4 className="font-semibold">Suspension</h4>
-        <p className="mt-1 text-xs text-navy/60">A suspended business or agent disappears from the directory and matching, and agents lose access to their clients.</p>
+        <p className="mt-1 text-xs text-navy/60">A suspended business or agent disappears from the database and matching, and agents lose access to their clients.</p>
         <textarea className="input mt-2" rows={2} placeholder="Reason (kept on record)" value={reason} onChange={(e) => setReason(e.target.value)} />
         {o.is_suspended
           ? <button className="btn-ghost mt-2" onClick={() => suspend(false)}>Reinstate</button>
