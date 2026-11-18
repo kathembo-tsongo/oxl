@@ -58,6 +58,8 @@ export default function Onboarding() {
   })
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [tch, setTch] = useState({})
+  const touch = (k) => setTch((p) => (p[k] ? p : { ...p, [k]: true }))
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
 
   useEffect(() => {
@@ -69,19 +71,24 @@ export default function Onboarding() {
   const trader = ['exporter', 'importer', 'agent'].includes(f.role)
   const business = ['exporter', 'importer'].includes(f.role)
 
-  // Progress: each section lists the key things it needs
+  // Progress: every field counts. Preselected defaults only count once the user has chosen them.
+  const has = (v) => !!String(v ?? '').trim()
   const secs = [
-    { key: 'who', label: 'Role', parts: [true] },
-    { key: 'biz', label: 'Business', parts: [!!f.name.trim(), !!f.business_category_id] },
+    { key: 'who', label: 'Role', parts: [!!tch.role, ...(business ? [!!tch.entity] : [])] },
+    { key: 'biz', label: 'Business', parts: [has(f.name), !!tch.country, has(f.city), has(f.registration_no), has(f.year), !!f.business_category_id, has(f.description)] },
     ...(trader ? [{ key: 'trade', label: 'Products', parts: [f.hs.length > 0] }] : []),
-    ...(agent ? [{ key: 'agent', label: 'Agent profile', parts: [!!f.areas.trim(), f.conduct] }] : []),
-    { key: 'you', label: 'About you', parts: [!!f.full_name.trim()] },
+    ...(agent ? [{ key: 'agent', label: 'Agent profile', parts: [has(f.areas), has(f.references), has(f.endorsing_body), has(f.fee_note), f.conduct] }] : []),
+    { key: 'you', label: 'About you', parts: [has(f.full_name), has(f.phone)] },
   ]
   const frac = (s) => s.parts.filter(Boolean).length / s.parts.length
+  const secPct = (s) => Math.round(frac(s) * 100)
   const num = (k) => secs.findIndex((s) => s.key === k) + 1
   const isDone = (k) => frac(secs.find((s) => s.key === k)) === 1
   const doneCount = secs.filter((s) => frac(s) === 1).length
-  const pct = Math.round((secs.reduce((a, s) => a + frac(s), 0) / secs.length) * 100)
+  const total = secs.reduce((a, s) => a + s.parts.length, 0)
+  const filled = secs.reduce((a, s) => a + s.parts.filter(Boolean).length, 0)
+  const pct = Math.round((filled / total) * 100)
+  const missing = [!has(f.name) && 'organisation name', !f.business_category_id && 'main business activity', agent && !has(f.areas) && 'areas you cover', agent && !f.conduct && 'the code of conduct', !has(f.full_name) && 'your name'].filter(Boolean)
 
   async function submit(e) {
     e.preventDefault(); setErr(null)
@@ -141,7 +148,7 @@ export default function Onboarding() {
       {/* Progress: fills as each section is completed */}
       <nav aria-label="Progress" className="sticky top-0 z-20 -mx-4 mt-4 bg-cream/90 px-4 py-3 backdrop-blur sm:mx-0 sm:px-0">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-medium">{doneCount} of {secs.length} steps done</span>
+          <span className="font-medium">{filled} of {total} fields · {doneCount}/{secs.length} sections</span>
           <span className="tabular-nums text-navy/60">{pct}%</span>
         </div>
         <div className="mt-2 flex gap-1.5">
@@ -150,7 +157,7 @@ export default function Onboarding() {
               <div className="h-2 overflow-hidden rounded-full bg-line">
                 <div className="h-full rounded-full bg-leaf transition-all duration-500" style={{ width: `${frac(s) * 100}%` }} />
               </div>
-              <span className={`mt-1 hidden truncate text-[11px] sm:block ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/50'}`}>{s.label}</span>
+              <span className={`mt-1 hidden truncate text-[11px] sm:block ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/50'}`}>{s.label} {secPct(s)}%</span>
             </a>
           ))}
         </div>
@@ -161,7 +168,7 @@ export default function Onboarding() {
           <div className="sm:col-span-2">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {Object.entries(ROLE_LABEL).map(([k, v]) => (
-                <button type="button" key={k} onClick={() => setF({ ...f, role: k })} aria-pressed={f.role === k}
+                <button type="button" key={k} onClick={() => { touch('role'); setF({ ...f, role: k }) }} aria-pressed={f.role === k}
                   className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${f.role === k ? 'border-navy bg-navy text-white shadow-sm' : 'border-line bg-white hover:border-navy/40'}`}>
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${f.role === k ? 'bg-white/15' : 'bg-cream'}`}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={f.role === k ? '#fff' : '#C2583A'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={ROLE_ICON[k]} /></svg>
@@ -179,7 +186,7 @@ export default function Onboarding() {
               <label className="label">I {f.role === 'exporter' ? 'sell' : 'buy'} as…</label>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {Object.entries(ENTITY_LABEL).map(([k, v]) => (
-                  <button type="button" key={k} onClick={() => setF({ ...f, entity_type: k })} aria-pressed={f.entity_type === k}
+                  <button type="button" key={k} onClick={() => { touch('entity'); setF({ ...f, entity_type: k }) }} aria-pressed={f.entity_type === k}
                     className={`rounded-xl border px-3 py-2.5 text-left text-sm transition ${f.entity_type === k ? 'border-terra bg-terra/10' : 'border-line bg-white hover:border-navy/40'}`}>
                     <span className="block font-medium">{v}</span>
                     <span className="block text-xs text-navy/50">{ENTITY_HINT[k]}</span>
@@ -194,7 +201,7 @@ export default function Onboarding() {
         <Section id="biz" n={num('biz')} done={isDone('biz')} title={agent ? 'Your agent business' : 'Your business'} hint="Tell us where you are and what you do.">
           <div className="sm:col-span-2"><label className="label">{agent ? 'Agent or business name' : f.entity_type === 'individual' && business ? 'Your trading name (or your full name)' : 'Organisation name'}</label><input className="input" required value={f.name} onChange={set('name')} /></div>
           <div><label className="label">Country</label>
-            <CountrySelect value={f.country} countries={countries} onChange={(code) => setF({ ...f, country: code, city: '', business_category_id: null })} />
+            <CountrySelect value={f.country} countries={countries} onChange={(code) => { touch('country'); setF({ ...f, country: code, city: '', business_category_id: null }) }} />
           </div>
           <div><label className="label" htmlFor="town">City / town</label><TownInput id="town" country={f.country} value={f.city} onChange={(v) => setF((p) => ({ ...p, city: v }))} /></div>
           <div><label className="label">{agent ? 'Business registration or broker licence no. (if any)' : f.entity_type === 'individual' ? 'Registration number (if any)' : f.entity_type === 'trader' ? 'Registration or broker licence no.' : 'Registration number'}</label><input className="input" value={f.registration_no} onChange={set('registration_no')} placeholder="e.g. BRS / ORC number" /></div>
@@ -238,6 +245,7 @@ export default function Onboarding() {
 
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
         <div className="card flex flex-wrap items-center gap-4 !p-5">
+          {missing.length > 0 && <p className="w-full text-xs text-terra">Still needed: {missing.join(', ')}.</p>}
           <button className="btn-primary px-6 py-2.5" disabled={busy}>{busy ? 'Saving…' : agent ? 'Register as an agent' : 'Create profile'}</button>
           <p className="min-w-[14rem] flex-1 text-xs text-navy/60">Next, on your <b>Profile</b> page: upload {agent || (business && ['individual', 'trader'].includes(f.entity_type)) ? 'your national ID or passport' : 'the national ID or passport of two directors or representatives'}, and pin your business location on the map. OXL checks both before raising your trust level.</p>
         </div>
