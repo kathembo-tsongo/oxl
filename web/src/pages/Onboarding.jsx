@@ -6,6 +6,7 @@ import BusinessCategorySelect from '../components/BusinessCategorySelect'
 import YearSelect from '../components/YearSelect'
 import CountrySelect from '../components/CountrySelect'
 import TownInput from '../components/TownInput'
+import CommodityPicker from '../components/CommodityPicker'
 
 const ROLE_HINT = {
   exporter: 'You sell goods to buyers in other countries',
@@ -117,14 +118,7 @@ export default function Onboarding() {
         {trader && (
           <div className="sm:col-span-2">
             <label className="label">{agent ? 'Commodities you work with' : 'Commodities you trade'}</label>
-            <div className="flex flex-wrap gap-2">
-              {commodities.map((c) => (
-                <button type="button" key={c.hs_code} onClick={() => toggleHs(c.hs_code)}
-                  className={`rounded-full border px-3 py-1 text-xs ${f.hs.includes(c.hs_code) ? 'border-leaf bg-leaf text-white' : 'border-line bg-white'}`}>
-                  {c.name} <span className="opacity-60">HS {c.hs_code}</span>
-                </button>
-              ))}
-            </div>
+            <CommodityPicker commodities={commodities} value={f.hs} onChange={(hs) => setF({ ...f, hs })} />
           </div>
         )}
         {agent && (
