@@ -29,11 +29,15 @@ const ROLE_ICON = {
 const TIERS = ['Self-declared', 'Documents checked', 'Registry checked', 'Field verified']
 const SHADES = ['#F4DDD2', '#E9B9A5', '#D98B6F', '#C2583A']
 
-function Section({ n, title, hint, children }) {
+function Section({ id, n, done, title, hint, children }) {
   return (
-    <section className="card !p-5 sm:!p-6">
+    <section id={`sec-${id}`} className="card scroll-mt-24 !p-5 sm:!p-6">
       <div className="mb-4 flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy text-sm font-semibold text-white">{n}</span>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white transition-colors duration-300 ${done ? 'bg-leaf' : 'bg-navy'}`}>
+          {done
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-label="Done"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            : n}
+        </span>
         <div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
           {hint && <p className="mt-0.5 text-sm text-navy/60">{hint}</p>}
@@ -64,6 +68,20 @@ export default function Onboarding() {
   const agent = f.role === 'agent'
   const trader = ['exporter', 'importer', 'agent'].includes(f.role)
   const business = ['exporter', 'importer'].includes(f.role)
+
+  // Progress: each section lists the key things it needs
+  const secs = [
+    { key: 'who', label: 'Role', parts: [true] },
+    { key: 'biz', label: 'Business', parts: [!!f.name.trim(), !!f.business_category_id] },
+    ...(trader ? [{ key: 'trade', label: 'Products', parts: [f.hs.length > 0] }] : []),
+    ...(agent ? [{ key: 'agent', label: 'Agent profile', parts: [!!f.areas.trim(), f.conduct] }] : []),
+    { key: 'you', label: 'About you', parts: [!!f.full_name.trim()] },
+  ]
+  const frac = (s) => s.parts.filter(Boolean).length / s.parts.length
+  const num = (k) => secs.findIndex((s) => s.key === k) + 1
+  const isDone = (k) => frac(secs.find((s) => s.key === k)) === 1
+  const doneCount = secs.filter((s) => frac(s) === 1).length
+  const pct = Math.round((secs.reduce((a, s) => a + frac(s), 0) / secs.length) * 100)
 
   async function submit(e) {
     e.preventDefault(); setErr(null)
@@ -100,7 +118,6 @@ export default function Onboarding() {
     if (error) setErr(error.message); else refresh()
   }
 
-  let step = 0
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       {/* Welcome banner */}
@@ -121,8 +138,26 @@ export default function Onboarding() {
         </div>
       </header>
 
-      <form onSubmit={submit} className="mt-6 space-y-5">
-        <Section n={++step} title="Who are you?" hint="Choose the role that fits you best.">
+      {/* Progress: fills as each section is completed */}
+      <nav aria-label="Progress" className="sticky top-0 z-20 -mx-4 mt-4 bg-cream/90 px-4 py-3 backdrop-blur sm:mx-0 sm:px-0">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium">{doneCount} of {secs.length} steps done</span>
+          <span className="tabular-nums text-navy/60">{pct}%</span>
+        </div>
+        <div className="mt-2 flex gap-1.5">
+          {secs.map((s) => (
+            <a key={s.key} href={`#sec-${s.key}`} className="group min-w-0 flex-1" title={s.label}>
+              <div className="h-2 overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-leaf transition-all duration-500" style={{ width: `${frac(s) * 100}%` }} />
+              </div>
+              <span className={`mt-1 hidden truncate text-[11px] sm:block ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/50'}`}>{s.label}</span>
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <form onSubmit={submit} className="mt-3 space-y-5">
+        <Section id="who" n={num('who')} done={isDone('who')} title="Who are you?" hint="Choose the role that fits you best.">
           <div className="sm:col-span-2">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {Object.entries(ROLE_LABEL).map(([k, v]) => (
@@ -156,7 +191,7 @@ export default function Onboarding() {
           )}
         </Section>
 
-        <Section n={++step} title={agent ? 'Your agent business' : 'Your business'} hint="Tell us where you are and what you do.">
+        <Section id="biz" n={num('biz')} done={isDone('biz')} title={agent ? 'Your agent business' : 'Your business'} hint="Tell us where you are and what you do.">
           <div className="sm:col-span-2"><label className="label">{agent ? 'Agent or business name' : f.entity_type === 'individual' && business ? 'Your trading name (or your full name)' : 'Organisation name'}</label><input className="input" required value={f.name} onChange={set('name')} /></div>
           <div><label className="label">Country</label>
             <CountrySelect value={f.country} countries={countries} onChange={(code) => setF({ ...f, country: code, city: '', business_category_id: null })} />
@@ -170,13 +205,13 @@ export default function Onboarding() {
         </Section>
 
         {trader && (
-          <Section n={++step} title={agent ? 'Commodities you work with' : 'Commodities you trade'} hint="Tick only what you actually deal in. You can change this later.">
+          <Section id="trade" n={num('trade')} done={isDone('trade')} title={agent ? 'Commodities you work with' : 'Commodities you trade'} hint="Tick only what you actually deal in. You can change this later.">
             <div className="sm:col-span-2"><CommodityPicker commodities={commodities} value={f.hs} onChange={(hs) => setF((p) => ({ ...p, hs }))} /></div>
           </Section>
         )}
 
         {agent && (
-          <Section n={++step} title="Your agent profile" hint="Clients see this before they accept you.">
+          <Section id="agent" n={num('agent')} done={isDone('agent')} title="Your agent profile" hint="Clients see this before they accept you.">
             <div className="sm:col-span-2"><label className="label">Areas you cover (counties or regions, separated by commas)</label>
               <input className="input" required value={f.areas} onChange={set('areas')} placeholder="e.g. Ashanti, Bono, Ahafo" /></div>
             <div className="sm:col-span-2"><label className="label">Two references (name and phone)</label>
@@ -196,7 +231,7 @@ export default function Onboarding() {
           </Section>
         )}
 
-        <Section n={++step} title="About you" hint="So partners and OXL staff know who to contact.">
+        <Section id="you" n={num('you')} done={isDone('you')} title="About you" hint="So partners and OXL staff know who to contact.">
           <div><label className="label">Your name</label><input className="input" required value={f.full_name} onChange={set('full_name')} /></div>
           <div><label className="label">Phone / WhatsApp</label><PhoneInput country={f.country} countries={countries} value={f.phone} onChange={(v) => setF((p) => ({ ...p, phone: v }))} /></div>
         </Section>
