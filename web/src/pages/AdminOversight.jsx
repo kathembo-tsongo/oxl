@@ -70,6 +70,7 @@ function Overview() {
         <Stat label="Locations not yet reviewed" value={d.locations_not_reviewed} to="/admin" warn />
         <Stat label="Open problem reports" value={d.open_problem_reports} to="/admin/safety" warn />
         <Stat label="Safety alerts" value={d.safety_alerts} to="/admin/safety" warn />
+        <Stat label="Open safety signals" value={d.open_safety_signals} to="/admin/safety" warn />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Breakdown title="By role" data={d.organisations_by_role} label={(k) => ROLE_LABEL[k] ?? words(k)} />

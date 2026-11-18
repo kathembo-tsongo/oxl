@@ -18,19 +18,19 @@ export default function Invite() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-cream px-4 py-6">
       <div className="card w-full max-w-lg space-y-4">
         <div className="flex items-center gap-2"><svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4 28 16 16 28 4 16z" fill="#A3472A" /></svg><span className="font-serif text-lg font-semibold">OXL</span></div>
         {info === undefined && <p className="text-navy/60">Loading…</p>}
         {info === null && !done && <p>This invitation is no longer valid. It may have been used already, or the business opted out.</p>}
         {info && !done && (
           <>
-            <h1 className="text-2xl font-semibold">{info.name}, you are invited to OXL</h1>
+            <h1 className="break-words text-xl font-semibold sm:text-2xl">{info.name}, you are invited to OXL</h1>
             <p className="text-sm text-navy/70">OXL connects verified African businesses, buyers and sellers, between Kenya, Ghana and other markets, checks that deliveries can arrive on time, and helps businesses reach trade finance.</p>
             <p className="text-sm text-navy/70">We found your business in a public source. We only hold your business name, country, products and published business contact. Nothing is shown to other users until you join and are verified.</p>
-            <div className="flex flex-wrap gap-2">
-              <Link to="/" onClick={join} className="btn-primary">Join OXL</Link>
-              <button className="btn-ghost" onClick={optOut}>No thanks: delete my details</button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link to="/" onClick={join} className="btn-primary w-full justify-center text-center sm:w-auto">Join OXL</Link>
+              <button className="btn-ghost w-full sm:w-auto" onClick={optOut}>No thanks: delete my details</button>
             </div>
           </>
         )}

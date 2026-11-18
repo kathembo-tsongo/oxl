@@ -47,7 +47,7 @@ export default function AdminSafety() {
             </div>
             <p className="text-sm text-navy/80">{f.detail}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <input className="input max-w-md py-1" placeholder="Note (kept on record; sent with an alert)" value={notes[f.id] ?? ''} onChange={(e) => setNotes({ ...notes, [f.id]: e.target.value })} />
+              <input className="input w-full max-w-md py-1" placeholder="Note (kept on record; sent with an alert)" value={notes[f.id] ?? ''} onChange={(e) => setNotes({ ...notes, [f.id]: e.target.value })} />
               <button className="btn-ghost py-1" onClick={() => run(supabase.rpc('review_risk_flag', { p_flag: f.id, p_confirm: false, p_alert: null, p_note: note(f.id) }), 'Signal dismissed.')}>Dismiss</button>
               <button className="btn-ghost py-1" onClick={() => run(supabase.rpc('review_risk_flag', { p_flag: f.id, p_confirm: true, p_alert: null, p_note: note(f.id) }), 'Signal confirmed, no alert.')}>Confirm, no alert</button>
               <button className="btn-ghost py-1 text-amber-800" onClick={() => run(supabase.rpc('review_risk_flag', { p_flag: f.id, p_confirm: true, p_alert: 'caution', p_note: note(f.id) }), 'Caution alert placed; counterparties told.')}>Caution alert</button>
@@ -68,7 +68,7 @@ export default function AdminSafety() {
             </div>
             <p className="text-sm text-navy/80">{r.description}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <input className="input max-w-md py-1" placeholder="Note to the reporter" value={notes[r.id] ?? ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
+              <input className="input w-full max-w-md py-1" placeholder="Note to the reporter" value={notes[r.id] ?? ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
               {r.status === 'new' && <button className="btn-ghost py-1" onClick={() => run(supabase.rpc('update_problem_report', { p_report: r.id, p_status: 'investigating', p_note: note(r.id) }), 'Marked as investigating; reporter told.')}>Investigating</button>}
               <button className="btn-ghost py-1" onClick={() => run(supabase.rpc('update_problem_report', { p_report: r.id, p_status: 'resolved', p_note: note(r.id) }), 'Resolved; reporter told.')}>Resolved</button>
               <button className="btn-ghost py-1" onClick={() => run(supabase.rpc('update_problem_report', { p_report: r.id, p_status: 'dismissed', p_note: note(r.id) }), 'Dismissed; reporter told.')}>Dismiss</button>

@@ -35,13 +35,13 @@ export default function ClientWorkspace() {
       <div>
         <Link to="/" className="text-sm text-terra">← Your clients</Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-semibold">{client.name}</h2>
+          <h2 className="break-words text-2xl font-semibold">{client.name}</h2>
           <TierBadge tier={client.verification_tier} />
           <span className="text-sm text-navy/60">{ROLE_LABEL[client.role]} · {client.city ? `${client.city}, ` : ''}{client.country}</span>
         </div>
         <p className="mt-1 text-xs text-navy/60">Acting as agent · consent: {CONSENT_LABEL[link.consent_method]}, {new Date(link.consent_given_at).toLocaleDateString()} · document access: {link.can_view_documents ? 'allowed' : 'upload only'}</p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button className={tabCls('listings')} onClick={() => setTab('listings')}>{client.role === 'exporter' ? 'Offers' : 'Requests'}</button>
         <button className={tabCls('documents')} onClick={() => setTab('documents')}>Documents</button>
         <button className={tabCls('identity')} onClick={() => setTab('identity')}>Identity and location</button>
