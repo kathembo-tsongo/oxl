@@ -92,24 +92,75 @@ export function MfaRequired({ onDone }) {
   )
 }
 
-// After following the reset link in the email
+// After following the reset link in the email.
+// A reset link only proves the person owns the email. If the account has two-step sign-in,
+// Supabase also requires the authenticator code before it lets the password change, so we ask for it first.
 export function NewPassword({ onDone }) {
+  const [step, setStep] = useState('checking') // checking | code | password
+  const [code, setCode] = useState('')
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
   const [msg, setMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (!alive) return
+      const needsCode = data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2'
+      setStep(needsCode ? 'code' : 'password')
+    })()
+    return () => { alive = false }
+  }, [])
+
+  async function verifyCode(e) {
+    e.preventDefault(); setBusy(true); setMsg(null)
+    const { data } = await supabase.auth.mfa.listFactors()
+    const factor = data?.totp?.[0]
+    if (!factor) { setBusy(false); setMsg({ err: 'No authenticator app is set up for this account.' }); return }
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() })
+    setBusy(false)
+    if (error) setMsg({ err: 'That code did not work. Try the newest code in your app.' })
+    else { setCode(''); setStep('password') }
+  }
+
   async function save(e) {
     e.preventDefault(); setMsg(null)
     if (pw !== pw2) { setMsg({ err: 'The two passwords are different.' }); return }
+    setBusy(true)
     const { error } = await supabase.auth.updateUser({ password: pw })
-    if (error) setMsg({ err: error.message }); else onDone?.()
+    setBusy(false)
+    if (!error) { onDone?.(); return }
+    if (/aal2/i.test(error.message)) { setStep('code'); setMsg({ err: 'Please enter the code from your authenticator app first.' }) }
+    else setMsg({ err: error.message })
   }
+
+  if (step === 'checking') {
+    return <AuthShell title="One moment…" text="Checking your reset link."><p className="text-sm text-navy/60">Preparing…</p></AuthShell>
+  }
+
+  if (step === 'code') {
+    return (
+      <AuthShell title="Confirm it is you" text="Your account uses two-step sign-in. Enter the 6-digit code from your authenticator app, then you can choose a new password.">
+        <form onSubmit={verifyCode} className="space-y-3">
+          <div><label className="label">6-digit code</label>
+            <input className="input tracking-widest" autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></div>
+          <Msg m={msg} />
+          <button className="btn-primary w-full" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Continue'}</button>
+          <button type="button" className="w-full text-sm text-navy/60" onClick={() => supabase.auth.signOut()}>Cancel and sign out</button>
+        </form>
+      </AuthShell>
+    )
+  }
+
   return (
     <AuthShell title="Choose a new password" text="Use at least 8 characters.">
       <form onSubmit={save} className="space-y-3">
         <div><label className="label">New password</label><input className="input" type="password" minLength={8} required value={pw} onChange={(e) => setPw(e.target.value)} /></div>
         <div><label className="label">Repeat it</label><input className="input" type="password" minLength={8} required value={pw2} onChange={(e) => setPw2(e.target.value)} /></div>
         <Msg m={msg} />
-        <button className="btn-primary w-full">Save password</button>
+        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</button>
       </form>
     </AuthShell>
   )
