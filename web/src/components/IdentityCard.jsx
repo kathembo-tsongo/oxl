@@ -7,6 +7,38 @@ import { DocCard } from '../pages/Documents'
 
 const ROLES = ['Director', 'Managing director', 'Chairperson', 'Secretary', 'Treasurer', 'Authorised representative']
 
+// Shown on the upload form so people know exactly what to send
+function ScanHelp() {
+  return (
+    <details className="group rounded-lg border border-line bg-white px-3 py-2 text-sm sm:col-span-3">
+      <summary className="cursor-pointer select-none font-medium text-terra">How do I scan both sides into one file?</summary>
+      <div className="mt-2 space-y-3 text-navy/80">
+        <div>
+          <div className="font-medium text-navy">On your phone</div>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            <li><b>iPhone:</b> open Notes, tap the camera icon, choose <i>Scan Documents</i>. Scan the front, then scan the back. Tap <i>Save</i>, then share the PDF to your browser or save it to Files.</li>
+            <li><b>Android:</b> open Google Drive, tap <i>+</i>, then <i>Scan</i>. Scan the front, tap <i>+</i> to add the back as page 2, then <i>Save</i> as PDF.</li>
+            <li><b>Any phone:</b> the free Adobe Scan app does the same.</li>
+          </ul>
+        </div>
+        <div>
+          <div className="font-medium text-navy">No scanner? Use one photo</div>
+          <p className="mt-1">Lay the ID on a plain dark surface, front and back side by side (or one above the other), and take <b>one</b> photo with both sides in the frame.</p>
+        </div>
+        <div>
+          <div className="font-medium text-navy">For a clear file</div>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            <li>Use daylight and avoid glare on the photo.</li>
+            <li>All four corners and all the text must be visible.</li>
+            <li>The ID must still be valid (not expired).</li>
+            <li>Use your real ID only. Only OXL staff can open it; other businesses and lenders never see it.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  )
+}
+
 export default function IdentityCard({ org }) {
   const [req, setReq] = useState(null)
   const [docs, setDocs] = useState([])
@@ -60,8 +92,12 @@ export default function IdentityCard({ org }) {
             <div><label className="label">Full name on the ID</label><input className="input" required value={f.holder_name} onChange={(e) => setF({ ...f, holder_name: e.target.value })} /></div>
             <div><label className="label">Role</label><select className="input" value={f.holder_role} onChange={(e) => setF({ ...f, holder_role: e.target.value })}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select></div>
           </>}
-          <div className={reps ? '' : 'sm:col-span-2'}><label className="label">Photo or scan (both sides)</label>
-            <input type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" className="text-sm" onChange={(e) => setF({ ...f, file: e.target.files?.[0] ?? null })} /></div>
+          <div className={reps ? '' : 'sm:col-span-2'}>
+            <label className="label">Photo or scan of the ID (front and back)</label>
+            <input type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" className="text-sm" onChange={(e) => setF({ ...f, file: e.target.files?.[0] ?? null })} />
+            <p className="mt-1 text-xs text-navy/60">Upload <b>one file</b> that shows <b>both sides</b>: a PDF with two pages, or one image with the front and the back. A passport needs only the photo page. PDF, JPG, PNG or WebP.</p>
+          </div>
+          <ScanHelp />
           <div className="sm:col-span-3 flex flex-wrap items-center gap-3">
             <button className="btn-primary" disabled={busy || !f.file}>{busy ? 'Uploading…' : 'Upload'}</button>
             <span className="text-xs text-navy/50">OXL's AI reads only the name, the type of document, its expiry and the last 4 characters of the number.</span>
