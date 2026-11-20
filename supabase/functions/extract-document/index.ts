@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       ? { type: "document", source: { type: "base64", media_type: mediaType, data: b64 } }
       : { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } };
 
-    const supportBack = doc.back_file_path && ['national_id', 'driving_licence'].includes(doc.doc_type);
+    const supportBack = doc.back_file_path && ['national_id', 'driving_licence', 'representative_id'].includes(doc.doc_type);
     let backPart: unknown | null = null;
     if (supportBack) {
       const { data: backFile, error: backDlErr } = await admin.storage.from("documents").download(doc.back_file_path!);
