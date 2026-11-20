@@ -20,6 +20,18 @@ export default function Documents({ forOrg }) {
   const load = () => supabase.from('documents').select('*').eq('org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setDocs(data ?? []))
   useEffect(() => { load() }, [org.id]) // eslint-disable-line
 
+  // Remove a document that is still waiting for review (the database allows this only while it is pending)
+  const [listErr, setListErr] = useState(null)
+  async function remove(d) {
+    if (!window.confirm('Remove this document? You can upload a new one afterwards.')) return
+    setListErr(null)
+    const { data, error } = await supabase.from('documents').delete().eq('id', d.id).select('id')
+    if (error || !data?.length) { setListErr(error?.message ?? 'This document can no longer be removed. OXL staff have already reviewed it.'); return }
+    const paths = [d.storage_path, d.back_file_path].filter(Boolean)
+    if (paths.length) await supabase.storage.from('documents').remove(paths)
+    load()
+  }
+
   async function upload(e) {
     e.preventDefault(); if (!file) return
     if (needsBack && !backFile) { setErr('Please upload the back of the document.'); return }
@@ -95,7 +107,8 @@ export default function Documents({ forOrg }) {
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">{forOrg ? `Documents of ${org.name}` : 'Your documents'}</h2>
         {docs.length === 0 && <EmptyState neutral title={forOrg ? 'No documents you can see' : 'No documents yet'}>{forOrg ? 'You can upload for this client; to see its documents, the client must allow it on its Profile page.' : 'Choose a document type on the left and upload your first file.'}</EmptyState>}
-        {docs.map((d) => <DocCard key={d.id} d={d} />)}
+        {listErr && <p className="text-sm text-red-700">{listErr}</p>}
+        {docs.map((d) => <DocCard key={d.id} d={d} onRemove={!forOrg && d.review_status === 'pending' ? () => remove(d) : undefined} />)}
       </div>
     </div>
     </div>
@@ -106,7 +119,7 @@ export default function Documents({ forOrg }) {
 const txt = (v) => (v == null || v === '' ? '—' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v))
 const list = (v) => (Array.isArray(v) ? v.map(txt) : v ? [txt(v)] : [])
 
-export function DocCard({ d, children }) {
+export function DocCard({ d, children, onRemove }) {
   const x = d.extracted && typeof d.extracted === 'object' ? d.extracted : null
   const flags = list(x?.red_flags)
   const status = { pending: 'bg-gold/25 text-gold-ink', approved: 'bg-leaf/15 text-leaf', rejected: 'bg-coral/15 text-coral-ink' }[d.review_status]
@@ -133,8 +146,9 @@ export function DocCard({ d, children }) {
       )}
       {flags.length > 0 && <p className="mt-2 text-xs text-red-700">⚑ {flags.join(' · ')}</p>}
       {x?.is_expired === true && <p className="mt-1 text-xs text-red-700">⚑ Document appears expired</p>}
-      {d.extraction_status === 'failed' && <p className="mt-2 text-xs text-red-700">AI reading failed{d.review_notes ? `: ${txt(d.review_notes)}` : ''}</p>}
+      {d.extraction_status === 'failed' && <p className="mt-2 text-xs text-red-700">AI reading failed{d.review_notes ? `: ${txt(d.review_notes)}` : ''}{onRemove ? '. Remove it and upload a clearer photo, or wait for OXL staff to review it.' : ''}</p>}
       {d.extraction_status !== 'failed' && d.review_notes && <p className="mt-2 text-xs text-navy/60">Note: {txt(d.review_notes)}</p>}
+      {onRemove && <div className="mt-3 border-t border-line pt-2 text-right"><button type="button" className="text-xs font-medium text-terra hover:underline" onClick={onRemove}>Remove this document</button></div>}
       {children}
     </div>
   )
