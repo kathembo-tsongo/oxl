@@ -10,6 +10,7 @@ import TownInput from '../components/TownInput'
 import IdentityCard from '../components/IdentityCard'
 import LocationCard from '../components/LocationCard'
 import { SecurityCard } from '../components/Security'
+import LendingFocus from '../components/LendingFocus'
 import { PageHeader, Avatar } from '../components/Page'
 
 export default function Profile() {
@@ -28,6 +29,7 @@ export default function Profile() {
       {org.role === 'agent' && <AgentDetails />}
       {org.role === 'exporter' && ['trader', 'cooperative'].includes(org.entity_type) && <MyProducers />}
       {org.role === 'exporter' && ['individual', 'enterprise', 'cooperative'].includes(org.entity_type) && <SellersOfMyGoods />}
+      {org.role === 'financier' && <LendingFocus />}
       {['exporter', 'importer'].includes(org.role) && <MyAgents />}
       {['exporter', 'importer', 'agent'].includes(org.role) && <Memberships />}
       <SecurityCard />

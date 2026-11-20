@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
-import { supabase, ROLE_LABEL } from '../supabase'
+import { supabase, ROLE_LABEL, FINANCE_TYPE_LABEL } from '../supabase'
 import Listings from '../components/Listings'
 import { DemoBadge, TierBadge } from '../components/Badges'
 import AgentHome from '../components/AgentHome'
@@ -93,24 +93,43 @@ function FinancierHome() {
   const { org } = useAuth()
   const [fr, setFr] = useState([])
   const [shared, setShared] = useState([])
+  const [showAll, setShowAll] = useState(false)
   useEffect(() => {
     supabase.from('finance_requests').select('*, organisations(id, name, country, verification_tier, is_demo)').eq('status', 'open').order('created_at', { ascending: false }).then(({ data }) => setFr(data ?? []))
     supabase.from('report_shares').select('org_id, created_at, organisations!report_shares_org_id_fkey(name, country, verification_tier, is_demo)').eq('shared_with_org_id', org.id).then(({ data }) => setShared(data ?? []))
   }, [org.id])
   const sharedIds = new Set(shared.map((s) => s.org_id))
+  // A request fits when it is inside everything the lender said it finances. Empty lists mean "everything".
+  const fits = (r) => {
+    const types = org.lending_types ?? [], hs = org.lending_hs_codes ?? [], cs = org.lending_countries ?? []
+    const amt = Number(r.amount_usd)
+    if (types.length && r.finance_type && !types.includes(r.finance_type)) return false
+    if (hs.length && r.hs_code && !hs.includes(r.hs_code)) return false
+    if (cs.length && !(cs.includes(r.organisations?.country) || (r.destination_country && cs.includes(r.destination_country)))) return false
+    if (org.lending_min_usd != null && amt < Number(org.lending_min_usd)) return false
+    if (org.lending_max_usd != null && amt > Number(org.lending_max_usd)) return false
+    return true
+  }
+  const hasFocus = (org.lending_types?.length || org.lending_hs_codes?.length || org.lending_countries?.length || org.lending_min_usd != null || org.lending_max_usd != null)
+  const suited = hasFocus ? fr.filter(fits) : fr
+  const listed = showAll ? fr : suited
   return (
     <div className="space-y-8">
       <section>
         <h2 className="text-2xl font-semibold">Finance requests</h2>
         <p className="text-sm text-navy/60">Open requests from traders on OXL. Full risk reports are visible only where the trader has shared theirs with you.</p>
+        {hasFocus
+          ? <p className="mt-2 text-sm text-navy/70">{showAll ? `Showing all ${fr.length} open requests.` : `Showing ${suited.length} of ${fr.length} that fit what you finance.`} <button className="text-terra hover:underline" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show only those that fit' : 'Show all requests'}</button> · <Link className="text-terra hover:underline" to="/profile">Change what you finance</Link></p>
+          : <p className="mt-2 text-sm text-navy/70">You see every request. <Link className="text-terra hover:underline" to="/profile">Say what you finance</Link> to see the best fits first.</p>}
         <div className="mt-4 grid gap-3">
-          {fr.length === 0 && <EmptyState neutral title="No open requests">New finance requests from traders appear here.</EmptyState>}
-          {fr.map((r) => (
+          {listed.length === 0 && <EmptyState neutral title={fr.length ? 'No requests fit what you finance yet' : 'No open requests'}>{fr.length ? 'Traders post new requests all the time. You can also show all requests.' : 'New finance requests from traders appear here.'}</EmptyState>}
+          {listed.map((r) => (
             <div key={r.id} className="card flex flex-wrap items-center gap-4">
               <div className="text-xl font-semibold tabular-nums">${Number(r.amount_usd).toLocaleString()}</div>
               <div className="flex-1 min-w-[14rem]">
                 <div className="font-medium">{r.organisations?.name}</div>
                 <div className="text-sm text-navy/60">{r.purpose}</div>
+                <div className="mt-1 text-xs text-navy/60">{[r.finance_type && FINANCE_TYPE_LABEL[r.finance_type]?.name, r.hs_code && `HS ${r.hs_code}`, r.destination_country && `to ${r.destination_country}`, r.repay_days && `${r.repay_days} days`].filter(Boolean).join(' · ')}</div>
               </div>
               <div className="flex items-center gap-2 text-xs">{r.organisations?.country} <TierBadge tier={r.organisations?.verification_tier} /> <DemoBadge show={r.organisations?.is_demo} /></div>
               {sharedIds.has(r.org_id)

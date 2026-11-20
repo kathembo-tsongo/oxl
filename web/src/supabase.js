@@ -50,6 +50,14 @@ export const ENTITY_HINT = {
   trader: 'I trade produce that belongs to others, for a commission',
 }
 export const CONSENT_LABEL = { in_app: 'Given in the app', signed_form: 'Signed consent form', recorded_verbal: 'Recorded verbal consent' }
+export const FINANCE_TYPE_LABEL = {
+  pre_export: { name: 'Pre-export finance', hint: 'Money to buy, process and pack goods before they ship.' },
+  purchase_order: { name: 'Purchase-order finance', hint: 'Money to fulfil a confirmed order from a buyer.' },
+  invoice: { name: 'Invoice finance', hint: 'Cash now against an invoice the buyer has not yet paid.' },
+  working_capital: { name: 'Working capital', hint: 'General running costs between harvest, shipping and payment.' },
+  equipment: { name: 'Equipment', hint: 'Machines, storage or vehicles for the business.' },
+  other: { name: 'Other', hint: 'Anything else. Explain it in the purpose.' },
+}
 export const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'DAP', 'DDP']
 
 // Certificates sellers can hold and buyers can ask for (keys match destination_requirements.certificate)
