@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
+import ProductRequests from '../components/ProductRequests'
 import { PageHeader } from '../components/Page'
 
-const TABS = { products: 'Products', grades: 'Grades', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
+const TABS = { products: 'Products', requests: 'Product requests', grades: 'Grades', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
 
 export default function AdminReference() {
   const [tab, setTab] = useState('products')
@@ -23,6 +24,7 @@ export default function AdminReference() {
       {tab === 'grades' && <Grades />}
       {tab === 'sanctions' && <Sanctions />}
       {tab === 'products' && <Products />}
+      {tab === 'requests' && <ProductRequests />}
       {tab === 'activities' && <BusinessActivities />}
       {tab === 'settings' && <Settings />}
     </div>
