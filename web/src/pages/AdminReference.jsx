@@ -1,8 +1,9 @@
 // OXL staff: maintain the data matching depends on (user story O3):
 // locations, the route table, destination certificate rules, the sanctions list and the safety margin.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
+import LocationMap from '../components/LocationMap'
 import ProductRequests from '../components/ProductRequests'
 import { PageHeader } from '../components/Page'
 
@@ -90,33 +91,116 @@ function RouteTable() {
   )
 }
 
+const round6 = (n) => Math.round(Number(n) * 1e6) / 1e6
+const KIND_HINT = { town: '', port: ' port', border: ' border post', airport: ' airport' }
+const kmBetween = (a, b) => {
+  const R = 6371, rad = (d) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 function Locations() {
   const [rows, setRows] = useState([])
   const [countries, setCountries] = useState([])
   const [f, setF] = useState({ name: '', country: 'KE', kind: 'town', lat: '', lon: '' })
   const [msg, setMsg] = useState(null)
-  const load = () => supabase.from('locations').select('*').order('country').order('name').then(({ data }) => setRows(data ?? []))
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState(null)   // null = no search yet
+  const [searching, setSearching] = useState(false)
+  const [focus, setFocus] = useState(null)
+  const [paste, setPaste] = useState('')
+  const [cRows, setCRows] = useState([])   // every place of the chosen country (the list above may be capped by the server)
+  const load = () => supabase.from('locations').select('*').order('country').order('name').range(0, 9999).then(({ data }) => setRows(data ?? []))
   useEffect(() => { load(); supabase.from('countries').select('*').order('name').then(({ data }) => setCountries(data ?? [])) }, [])
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const loadCountry = () => supabase.from('locations').select('name, kind, country, lat, lon').eq('country', f.country).range(0, 4999).then(({ data }) => setCRows(data ?? []))
+  useEffect(() => { loadCountry() }, [f.country]) // eslint-disable-line
+
+  // Middle of the country's known places: where the map opens, and a check that a new point is in the right country
+  const centre = useMemo(() => {
+    const pts = cRows.filter((r) => r.lat != null && r.lon != null)
+    if (!pts.length) return null
+    return { lat: pts.reduce((a, r) => a + Number(r.lat), 0) / pts.length, lon: pts.reduce((a, r) => a + Number(r.lon), 0) / pts.length, zoom: 5 }
+  }, [cRows])
+  const lat = f.lat === '' ? null : Number(f.lat), lon = f.lon === '' ? null : Number(f.lon)
+  const hasPoint = lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)
+  const far = hasPoint && centre ? kmBetween({ lat, lon }, centre) : 0
+  const dup = f.name.trim() && cRows.find((r) => r.name.toLowerCase() === f.name.trim().toLowerCase())
+
+  const place = (la, lo, zoom = 14) => { setF((p) => ({ ...p, lat: String(round6(la)), lon: String(round6(lo)) })); setFocus({ lat: la, lon: lo, zoom, key: Date.now() }) }
+
+  async function search(e) {
+    e.preventDefault()
+    const term = `${q.trim() || f.name.trim()}${KIND_HINT[f.kind] ?? ''}`.trim()
+    if (term.length < 3) { setMsg({ err: 'Type at least 3 letters of the name to search.' }); return }
+    setSearching(true); setMsg(null); setResults(null)
+    try {
+      const cc = /^[A-Za-z]{2}$/.test(f.country) ? `&countrycodes=${f.country.toLowerCase()}` : ''
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(term)}${cc}`, { headers: { Accept: 'application/json' } })
+      if (!res.ok) throw new Error('search failed')
+      setResults(await res.json())
+    } catch {
+      setMsg({ err: 'The place search is not available right now. Click the map or paste coordinates instead.' })
+    }
+    setSearching(false)
+  }
+  function choose(r) { place(Number(r.lat), Number(r.lon), 14); if (!f.name.trim()) setF((p) => ({ ...p, name: r.name || r.display_name.split(',')[0] })); setResults(null) }
+  function applyPaste(v) {
+    setPaste(v)
+    const m = v.match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/)
+    if (m && Math.abs(Number(m[1])) <= 90 && Math.abs(Number(m[2])) <= 180) place(Number(m[1]), Number(m[2]), 14)
+  }
+
   async function save(e) {
     e.preventDefault(); setMsg(null)
-    const { error } = await supabase.from('locations').insert({ name: f.name, country: f.country, kind: f.kind, lat: f.lat === '' ? null : Number(f.lat), lon: f.lon === '' ? null : Number(f.lon) })
-    setMsg(error ? { err: error.message } : { ok: 'Location added. Reload the page to see it in pickers.' }); if (!error) { setF({ ...f, name: '', lat: '', lon: '' }); load() }
+    if ((lat == null) !== (lon == null)) { setMsg({ err: 'Fill in both latitude and longitude, or leave both empty.' }); return }
+    if (hasPoint && (Math.abs(lat) > 90 || Math.abs(lon) > 180)) { setMsg({ err: 'Latitude must be between -90 and 90, and longitude between -180 and 180.' }); return }
+    if (dup && !window.confirm(`${dup.name} (${dup.kind}) already exists in this country. Add another with the same name?`)) return
+    if (!hasPoint && !window.confirm('This location has no coordinates, so distance and location checks cannot use it. Save anyway?')) return
+    if (far > 1500 && !window.confirm(`This point is about ${Math.round(far).toLocaleString()} km from the other places in this country. Check the pin. Save anyway?`)) return
+    const { error } = await supabase.from('locations').insert({ name: f.name.trim(), country: f.country, kind: f.kind, lat: hasPoint ? lat : null, lon: hasPoint ? lon : null })
+    setMsg(error ? { err: error.message } : { ok: 'Location added. Reload the page to see it in pickers.' })
+    if (!error) { setF({ ...f, name: '', lat: '', lon: '' }); setQ(''); setPaste(''); setResults(null); load(); loadCountry() }
   }
+
   return (
     <div className="space-y-4">
       <form onSubmit={save} className="card grid gap-3 sm:grid-cols-5">
         <h3 className="sm:col-span-5 font-semibold">Add a location</h3>
-        <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={set('name')} /></div>
+        <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={set('name')} placeholder="e.g. Busia" /></div>
         <div><label className="label">Country</label><select className="input" value={f.country} onChange={set('country')}>{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
         <div><label className="label">Type</label><select className="input" value={f.kind} onChange={set('kind')}><option value="town">Town</option><option value="port">Port</option><option value="border">Border post</option><option value="airport">Airport</option></select></div>
         <div className="flex items-end"><button className="btn-primary w-full">Add</button></div>
+
+        <div className="sm:col-span-5 space-y-2 rounded-lg bg-cream p-3">
+          <p className="text-sm font-medium">Find the coordinates, no typing needed</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input min-w-0 flex-1" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search a place (uses the name above if empty)`}
+              onKeyDown={(e) => { if (e.key === 'Enter') search(e) }} />
+            <button type="button" className="btn-ghost" disabled={searching} onClick={search}>{searching ? 'Searching…' : 'Find on map'}</button>
+          </div>
+          {results && (results.length === 0
+            ? <p className="text-sm text-navy/60">Nothing found. Try another spelling, click the map, or paste coordinates.</p>
+            : <ul className="divide-y divide-line rounded-lg border border-line bg-white text-sm">{results.map((r) => (
+                <li key={r.place_id}><button type="button" className="block w-full px-3 py-2 text-left hover:bg-cream" onClick={() => choose(r)}>{r.display_name}</button></li>))}</ul>)}
+          <LocationMap lat={hasPoint ? lat : undefined} lon={hasPoint ? lon : undefined} center={centre ?? undefined} focus={focus} height={280}
+            onPick={(la, lo) => { setF((p) => ({ ...p, lat: String(la), lon: String(lo) })) }} />
+          <p className="text-xs text-navy/60">Click the map to place or move the pin (switch to Satellite to see buildings). Or in Google Maps, right-click the place, click the coordinates to copy them, and paste here:</p>
+          <input className="input" value={paste} onChange={(e) => applyPaste(e.target.value)} placeholder="e.g. 0.4608, 34.1115" />
+        </div>
+
         <div><label className="label">Latitude</label><input className="input" type="number" step="0.000001" value={f.lat} onChange={set('lat')} placeholder="e.g. -1.2921" /></div>
         <div><label className="label">Longitude</label><input className="input" type="number" step="0.000001" value={f.lon} onChange={set('lon')} placeholder="e.g. 36.8219" /></div>
-        <div className="sm:col-span-3 flex items-end"><Msg m={msg} /></div>
+        <div className="sm:col-span-3 flex flex-col justify-end gap-1 text-xs">
+          {dup && <span className="text-amber-700">{dup.name} ({dup.kind}) already exists in this country.</span>}
+          {far > 1500 && <span className="text-amber-700">This point is about {Math.round(far).toLocaleString()} km from the other places in this country. Check the pin.</span>}
+          {!hasPoint && f.name.trim() && <span className="text-navy/60">No coordinates yet. Use Find on map, click the map, or paste them.</span>}
+          <Msg m={msg} />
+        </div>
       </form>
       <div className="card grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-        {rows.map((l) => <div key={l.id} className="flex justify-between gap-2 border-b border-line py-1"><span>{l.name} <span className="text-xs text-navy/50">{l.kind}</span></span><span className="text-xs text-navy/50">{l.country}</span></div>)}
+        {rows.map((l) => <div key={l.id} className="flex justify-between gap-2 border-b border-line py-1"><span>{l.name} <span className="text-xs text-navy/50">{l.kind}</span>{(l.lat == null || l.lon == null) && <span className="ml-1 text-xs text-amber-700">no coordinates</span>}</span><span className="text-xs text-navy/50">{l.country}</span></div>)}
       </div>
     </div>
   )
