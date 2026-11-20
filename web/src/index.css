@@ -2,25 +2,52 @@
 
 @theme {
   --color-navy: #1C2B4A;
+  --color-navy-deep: #131E36;
   --color-terra: #A3472A;
+  --color-terra-light: #F0A585;
   --color-leaf: #2E6B45;
   --color-cream: #F7F4EE;
   --color-line: #E2DDD3;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-serif: "Source Serif 4", Georgia, serif;
+  --shadow-card: 0 1px 2px rgb(28 43 74 / 0.05);
+  --shadow-lift: 0 8px 24px -10px rgb(28 43 74 / 0.3);
 }
 
+html { scroll-behavior: smooth; }
 body { @apply bg-cream text-navy font-sans antialiased; }
-h1, h2, h3 { @apply font-serif; }
+h1, h2, h3 { @apply font-serif; letter-spacing: -0.01em; text-wrap: balance; }
+::selection { background: rgb(163 71 42 / 0.18); }
 
 /* Visible keyboard focus on buttons, links and option cards */
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid rgb(28 43 74 / 0.6); outline-offset: 2px; }
+header button:focus-visible, header a:focus-visible { outline-color: #F0A585; }
+
+/* Secondary text was too faint on the cream background; these steps keep the same look at a readable contrast */
+.text-navy\/60 { color: rgb(28 43 74 / 0.74); }
+.text-navy\/55 { color: rgb(28 43 74 / 0.72); }
+.text-navy\/50 { color: rgb(28 43 74 / 0.7); }
+.text-navy\/40 { color: rgb(28 43 74 / 0.6); }
 
 @layer components {
-.card  { @apply bg-white border border-line rounded-xl p-5; }
+.card  { @apply bg-white border border-line rounded-xl p-5 shadow-card; }
+a.card, button.card { @apply transition duration-150; }
+a.card:hover, button.card:hover { @apply shadow-lift; border-color: rgb(28 43 74 / 0.35); }
+
+/* A table that carries the card class: no padding of its own, rows breathe, header reads as a header */
+table.card { @apply p-0 overflow-hidden; border-collapse: separate; border-spacing: 0; }
+table.card th { @apply bg-cream/70 px-4 py-2.5 font-medium; }
+table.card td { @apply px-4; }
+table.card tbody tr:hover { background: rgb(247 244 238 / 0.55); }
+
 .btn   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50; }
-.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 bg-navy text-white hover:bg-navy/90; }
-.btn-ghost   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 border border-line bg-white hover:bg-cream; }
-.input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy/30; }
+.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 bg-navy text-white shadow-sm hover:bg-navy-deep active:translate-y-px; }
+.btn-ghost   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 border border-line bg-white hover:bg-cream hover:border-navy/30 active:translate-y-px; }
+.input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm placeholder:text-navy/40 focus:outline-none focus:border-navy/40 focus:ring-2 focus:ring-navy/20; }
 .label { @apply block text-[13px] font-medium text-navy/75 mb-1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
