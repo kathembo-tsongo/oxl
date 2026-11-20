@@ -12,8 +12,8 @@
   --color-gold: #E2A33B;
   --color-gold-ink: #6B4A06;
   --color-coral-ink: #8A3318;
-  --color-cream: #F7F4EE;
-  --color-line: #E2DDD3;
+  --color-cream: #EEF2F7;
+  --color-line: #DAE1EB;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-serif: "Source Serif 4", Georgia, serif;
   --shadow-card: 0 1px 2px rgb(28 43 74 / 0.05);
@@ -21,7 +21,7 @@
 }
 
 html { scroll-behavior: smooth; }
-body { @apply bg-cream text-navy font-sans antialiased; }
+body { @apply text-navy font-sans antialiased; background: #EEF2F7 linear-gradient(180deg, #DFE8F4 0, #EEF2F7 460px) no-repeat; min-height: 100vh; }
 h1, h2, h3 { @apply font-serif; letter-spacing: -0.01em; text-wrap: balance; }
 ::selection { background: rgb(163 71 42 / 0.18); }
 
@@ -44,7 +44,7 @@ a.card:hover, button.card:hover { @apply shadow-lift; border-color: rgb(28 43 74
 table.card { @apply p-0 overflow-hidden; border-collapse: separate; border-spacing: 0; }
 table.card th { @apply bg-cream/70 px-4 py-2.5 font-medium; }
 table.card td { @apply px-4; }
-table.card tbody tr:hover { background: rgb(247 244 238 / 0.55); }
+table.card tbody tr:hover { background: rgb(238 242 247 / 0.7); }
 
 .btn   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50; }
 .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 bg-navy text-white shadow-sm hover:bg-navy-deep active:translate-y-px; }
@@ -54,7 +54,7 @@ table.card tbody tr:hover { background: rgb(247 244 238 / 0.55); }
 }
 
 /* Table headers inside cards: a quiet band in sentence case instead of small capitals */
-.card thead { background: rgb(247 244 238 / 0.7); }
+.card thead { background: rgb(238 242 247 / 0.8); }
 .card thead tr { text-transform: none; letter-spacing: normal; font-weight: 500; color: rgb(28 43 74 / 0.72); }
 
 @media (prefers-reduced-motion: reduce) {
