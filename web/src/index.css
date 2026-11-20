@@ -3,9 +3,15 @@
 @theme {
   --color-navy: #1C2B4A;
   --color-navy-deep: #131E36;
+  /* The four logo colours: navy, coral, green, gold. Terra is coral darkened so link text passes contrast on cream. */
+  --color-coral: #C2583A;
   --color-terra: #A3472A;
   --color-terra-light: #F0A585;
   --color-leaf: #2E6B45;
+  --color-leaf-light: #5DB07E;
+  --color-gold: #E2A33B;
+  --color-gold-ink: #6B4A06;
+  --color-coral-ink: #8A3318;
   --color-cream: #F7F4EE;
   --color-line: #E2DDD3;
   --font-sans: "Inter", system-ui, sans-serif;
@@ -21,7 +27,7 @@ h1, h2, h3 { @apply font-serif; letter-spacing: -0.01em; text-wrap: balance; }
 
 /* Visible keyboard focus on buttons, links and option cards */
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid rgb(28 43 74 / 0.6); outline-offset: 2px; }
-header button:focus-visible, header a:focus-visible { outline-color: #F0A585; }
+header button:focus-visible, header a:focus-visible { outline-color: #E2A33B; }
 
 /* Secondary text was too faint on the cream background; these steps keep the same look at a readable contrast */
 .text-navy\/60 { color: rgb(28 43 74 / 0.74); }

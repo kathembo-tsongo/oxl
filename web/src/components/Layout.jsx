@@ -39,7 +39,7 @@ export default function Layout({ children }) {
   ].filter(Boolean)
 
   const link = ({ isActive }) => `relative whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors ${isActive
-    ? 'text-white after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-terra-light'
+    ? 'text-white after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-gold'
     : 'text-white/75 hover:text-white'}`
   const staffLink = ({ isActive }) => `whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'}`
   const nav = (items) => items.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} className={link}>{label}</NavLink>)

@@ -13,9 +13,9 @@ export function PageHeader({ title, subtitle, actions }) {
   )
 }
 
-const DOT = { ok: 'bg-leaf', warn: 'bg-amber-500', bad: 'bg-red-600', none: 'bg-navy/25' }
+const DOT = { ok: 'bg-leaf', warn: 'bg-gold', bad: 'bg-coral', none: 'bg-navy/25' }
 
-// A number with a plain label. The dot says whether it needs attention: green fine, amber waiting, red problem.
+// A number with a plain label. The dot says whether it needs attention: green fine, gold waiting, coral problem.
 export function StatTile({ label, value, hint, tone = 'none' }) {
   return (
     <div className="card">
@@ -41,10 +41,14 @@ export function EmptyState({ title, children, action }) {
   )
 }
 
+// The letter circle takes one of the four logo colours, always the same one for the same name
+const TINTS = ['bg-navy/10 text-navy', 'bg-coral/15 text-coral-ink', 'bg-leaf/15 text-leaf', 'bg-gold/25 text-gold-ink']
 export function Avatar({ name, size = 36 }) {
+  const n = (name ?? '?').trim()
+  const tint = TINTS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % TINTS.length]
   return (
-    <span className="flex shrink-0 items-center justify-center rounded-full bg-navy/10 font-serif font-semibold text-navy" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }} aria-hidden="true">
-      {(name ?? '?').trim()[0]?.toUpperCase()}
+    <span className={`flex shrink-0 items-center justify-center rounded-full font-serif font-semibold ${tint}`} style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }} aria-hidden="true">
+      {n[0]?.toUpperCase()}
     </span>
   )
 }
