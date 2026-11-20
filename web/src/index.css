@@ -13,11 +13,14 @@
 body { @apply bg-cream text-navy font-sans antialiased; }
 h1, h2, h3 { @apply font-serif; }
 
+/* Visible keyboard focus on buttons, links and option cards */
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid rgb(28 43 74 / 0.6); outline-offset: 2px; }
+
 @layer components {
 .card  { @apply bg-white border border-line rounded-xl p-5; }
 .btn   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50; }
 .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 bg-navy text-white hover:bg-navy/90; }
 .btn-ghost   { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 border border-line bg-white hover:bg-cream; }
 .input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy/30; }
-.label { @apply block text-xs font-medium uppercase tracking-wide text-navy/60 mb-1; }
+.label { @apply block text-[13px] font-medium text-navy/75 mb-1; }
 }

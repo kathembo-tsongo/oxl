@@ -28,6 +28,21 @@ const ROLE_ICON = {
 }
 const TIERS = ['Self-declared', 'Documents checked', 'Registry checked', 'Field verified']
 const SHADES = ['#F4DDD2', '#E9B9A5', '#D98B6F', '#C2583A']
+const TIER_HINT = [
+  'What you told us, not yet checked.',
+  'OXL staff have checked your uploaded documents.',
+  'Your business was found in an official registry.',
+  'OXL or a field officer visited and confirmed your business.',
+]
+
+// Small tick shown on the chosen card, so a choice is obvious without relying on colour alone
+function Tick({ on }) {
+  return (
+    <span aria-hidden="true" className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full transition ${on ? 'bg-white text-navy' : 'opacity-0'}`}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+    </span>
+  )
+}
 
 function Section({ id, n, done, title, hint, children }) {
   return (
@@ -40,7 +55,7 @@ function Section({ id, n, done, title, hint, children }) {
         </span>
         <div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
-          {hint && <p className="mt-0.5 text-sm text-navy/60">{hint}</p>}
+          {hint && <p className="mt-0.5 text-sm text-navy/75">{hint}</p>}
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
@@ -126,31 +141,55 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      {/* Welcome banner */}
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] p-6 text-white sm:p-8">
-        <TradeMap className="pointer-events-none absolute -right-8 -top-8 h-72 opacity-30 sm:h-96" />
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10 lg:grid lg:grid-cols-[21rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+      {/* Left on wide screens: welcome banner and the checklist. Stacked on phones. */}
+      <aside className="lg:sticky lg:top-6 lg:space-y-4">
+      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy via-[#17233f] to-[#0c1426] p-5 text-white sm:p-6">
+        <TradeMap className="pointer-events-none absolute -right-10 -top-6 h-56 opacity-30 sm:-right-6 sm:h-72 lg:-right-14 lg:h-60 lg:opacity-25" />
         <button type="button" onClick={() => supabase.auth.signOut()} className="absolute right-4 top-4 z-10 rounded-lg px-3 py-1.5 text-xs font-medium text-white/80 ring-1 ring-white/25 hover:bg-white/10 hover:text-white">Sign out</button>
-        <div className="relative max-w-lg">
+        <div className="relative max-w-md">
           <Logo size={28} variant="dark" />
-          <h1 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">Set up your profile</h1>
-          <p className="mt-2 text-white/70">It takes about two minutes. You start as <b className="text-white">self-declared</b>. Uploading documents and an OXL check raise your trust level, which other users see.</p>
-          <ol className="mt-5 flex flex-wrap gap-2" aria-label="Trust levels">
+          <h1 className="mt-3 text-2xl font-semibold leading-tight sm:text-3xl">Set up your profile</h1>
+          <p className="mt-2 text-sm text-white/80 sm:text-base">It takes about two minutes. You start as <b className="text-white">self-declared</b>. Uploading documents and an OXL check raise your trust level, which other users see.</p>
+          <ol className="mt-4 flex flex-wrap gap-1.5" aria-label="Trust levels">
             {TIERS.map((t, i) => (
-              <li key={t} className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs ring-1 ring-white/15">
+              <li key={t} title={TIER_HINT[i]} className="flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-xs ring-1 ring-white/15">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: SHADES[i] }} />
-                {t}{i === 0 && <span className="text-white/60"> · you start here</span>}
+                {t}{i === 0 && <span className="text-white/75"> · you start here</span>}
               </li>
             ))}
           </ol>
         </div>
       </header>
 
-      {/* Progress: fills as each section is completed */}
-      <nav aria-label="Progress" className="sticky top-0 z-20 -mx-4 mt-4 bg-cream/90 px-4 py-3 backdrop-blur sm:mx-0 sm:px-0">
+      {/* Checklist: wide screens only */}
+      <nav aria-label="Sections" className="card hidden !p-4 lg:block">
+        <div className="mb-3 flex items-center justify-between text-xs">
+          <span className="font-medium">{filled} of {total} fields</span>
+          <span className="tabular-nums text-navy/75">{pct}%</span>
+        </div>
+        <div className="mb-3 h-2 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-leaf transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+        <ol className="space-y-1">
+          {secs.map((s, i) => (
+            <li key={s.key}>
+              <a href={`#sec-${s.key}`} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-cream">
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${frac(s) === 1 ? 'bg-leaf' : 'bg-navy'}`}>
+                  {frac(s) === 1 ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> : i + 1}
+                </span>
+                <span className="flex-1">{s.label}</span>
+                <span className={`text-xs tabular-nums ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/70'}`}>{secPct(s)}%</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+      </aside>
+
+      {/* Progress on phones and tablets: fills as each section is completed */}
+      <nav aria-label="Progress" className="sticky top-0 z-20 -mx-4 mt-4 bg-cream/90 px-4 py-3 backdrop-blur sm:mx-0 sm:px-0 lg:hidden">
         <div className="flex items-center justify-between text-xs">
           <span className="font-medium">{filled} of {total} fields · {doneCount}/{secs.length} sections</span>
-          <span className="tabular-nums text-navy/60">{pct}%</span>
+          <span className="tabular-nums text-navy/75">{pct}%</span>
         </div>
         <div className="mt-2 flex gap-1.5">
           {secs.map((s) => (
@@ -158,25 +197,26 @@ export default function Onboarding() {
               <div className="h-2 overflow-hidden rounded-full bg-line">
                 <div className="h-full rounded-full bg-leaf transition-all duration-500" style={{ width: `${frac(s) * 100}%` }} />
               </div>
-              <span className={`mt-1 hidden truncate text-[11px] sm:block ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/50'}`}>{s.label} {secPct(s)}%</span>
+              <span className={`mt-1 hidden truncate text-[11px] sm:block ${frac(s) === 1 ? 'font-medium text-leaf' : 'text-navy/70'}`}>{s.label} {secPct(s)}%</span>
             </a>
           ))}
         </div>
       </nav>
 
-      <form onSubmit={submit} className="mt-3 space-y-5">
+      <form onSubmit={submit} className="mt-3 space-y-5 lg:mt-0">
         <Section id="who" n={num('who')} done={isDone('who')} title="Who are you?" hint="Choose the role that fits you best.">
           <div className="sm:col-span-2">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {Object.entries(ROLE_LABEL).map(([k, v]) => (
                 <button type="button" key={k} onClick={() => { touch('role'); setF({ ...f, role: k }) }} aria-pressed={f.role === k}
-                  className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${f.role === k ? 'border-navy bg-navy text-white shadow-sm' : 'border-line bg-white hover:border-navy/40'}`}>
+                  className={`relative flex items-start gap-3 rounded-xl border p-3 pr-9 text-left transition ${f.role === k ? 'border-navy bg-navy text-white shadow-sm' : 'border-line bg-white hover:border-navy/40'}`}>
+                  <Tick on={f.role === k} />
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${f.role === k ? 'bg-white/15' : 'bg-cream'}`}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={f.role === k ? '#fff' : '#C2583A'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={ROLE_ICON[k]} /></svg>
                   </span>
                   <span>
                     <span className="block text-sm font-medium">{v}</span>
-                    <span className={`block text-xs ${f.role === k ? 'text-white/70' : 'text-navy/50'}`}>{ROLE_HINT[k]}</span>
+                    <span className={`block text-xs ${f.role === k ? 'text-white/85' : 'text-navy/70'}`}>{ROLE_HINT[k]}</span>
                   </span>
                 </button>
               ))}
@@ -188,13 +228,14 @@ export default function Onboarding() {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {Object.entries(ENTITY_LABEL).map(([k, v]) => (
                   <button type="button" key={k} onClick={() => { touch('entity'); setF({ ...f, entity_type: k }) }} aria-pressed={f.entity_type === k}
-                    className={`rounded-xl border px-3 py-2.5 text-left text-sm transition ${f.entity_type === k ? 'border-terra bg-terra/10' : 'border-line bg-white hover:border-navy/40'}`}>
+                    className={`relative rounded-xl border px-3 py-2.5 pr-9 text-left text-sm transition ${f.entity_type === k ? 'border-navy bg-navy text-white shadow-sm' : 'border-line bg-white hover:border-navy/40'}`}>
+                    <Tick on={f.entity_type === k} />
                     <span className="block font-medium">{v}</span>
-                    <span className="block text-xs text-navy/50">{ENTITY_HINT[k]}</span>
+                    <span className={`block text-xs ${f.entity_type === k ? 'text-white/85' : 'text-navy/70'}`}>{ENTITY_HINT[k]}</span>
                   </button>
                 ))}
               </div>
-              {f.entity_type === 'trader' && <p className="mt-2 text-xs text-navy/60">You can list the producers you sell for on your Profile page. Each offer then shows whose goods they are and your commission.</p>}
+              {f.entity_type === 'trader' && <p className="mt-2 text-xs text-navy/75">You can list the producers you sell for on your Profile page. Each offer then shows whose goods they are and your commission.</p>}
             </div>
           )}
         </Section>
@@ -247,8 +288,8 @@ export default function Onboarding() {
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
         <div className="card flex flex-wrap items-center gap-4 !p-5">
           {missing.length > 0 && <p className="w-full text-xs text-terra">Still needed: {missing.join(', ')}.</p>}
-          <button className="btn-primary px-6 py-2.5" disabled={busy}>{busy ? 'Saving…' : agent ? 'Register as an agent' : 'Create profile'}</button>
-          <p className="min-w-[14rem] flex-1 text-xs text-navy/60">Next, on your <b>Profile</b> page: upload {agent || (business && ['individual', 'trader'].includes(f.entity_type)) ? 'your national ID or passport' : 'the national ID or passport of two directors or representatives'}, and pin your business location on the map. OXL checks both before raising your trust level.</p>
+          <button className="btn-primary w-full px-6 py-2.5 sm:w-auto" disabled={busy}>{busy ? 'Saving…' : agent ? 'Register as an agent' : 'Create profile'}</button>
+          <p className="min-w-[14rem] flex-1 text-xs text-navy/75">Next, on your <b>Profile</b> page: upload {agent || (business && ['individual', 'trader'].includes(f.entity_type)) ? 'your national ID or passport' : 'the national ID or passport of two directors or representatives'}, and pin your business location on the map. OXL checks both before raising your trust level.</p>
         </div>
       </form>
     </div>
