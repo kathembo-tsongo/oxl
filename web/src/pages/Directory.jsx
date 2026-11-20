@@ -4,8 +4,17 @@ import { Link } from 'react-router-dom'
 import { supabase, ROLE_LABEL, TIER_LABEL, ENTITY_LABEL } from '../supabase'
 import { DemoBadge, TierBadge } from '../components/Badges'
 import { PageHeader, EmptyState, Avatar } from '../components/Page'
+import { useAuth } from '../App'
 
 const TIER_ORDER = ['field_verified', 'registry_checked', 'documents_checked', 'self_declared']
+
+// Who each kind of business needs to find. The Database opens on these; "All roles" still shows everyone.
+const SUIT = {
+  exporter: ['importer', 'agent', 'financier', 'partner'],
+  importer: ['exporter', 'agent', 'financier', 'partner'],
+  agent: ['exporter', 'importer'],
+  financier: ['exporter', 'importer'],
+}
 
 export default function Directory() {
   const [orgs, setOrgs] = useState([])
@@ -14,7 +23,10 @@ export default function Directory() {
   const [commodities, setCommodities] = useState([])
   const [q, setQ] = useState('')
   const [country, setCountry] = useState('')
-  const [role, setRole] = useState('')
+  const { org: me } = useAuth()
+  const suited = SUIT[me?.role]
+  const defaultRole = suited ? 'for_me' : ''
+  const [role, setRole] = useState(defaultRole)
   const [hs, setHs] = useState('')
   const [minTier, setMinTier] = useState('')
 
@@ -28,13 +40,13 @@ export default function Directory() {
 
   const list = useMemo(() => orgs.filter((o) => {
     const text = `${o.name} ${o.city ?? ''} ${o.description ?? ''} ${o.business_categories?.name ?? ''} ${(o.hs_codes ?? []).map((c) => hsName[c] ?? '').join(' ')} ${(agents[o.id]?.areas_covered ?? []).join(' ')}`.toLowerCase()
-    return (!country || o.country === country) && (!role || o.role === role) && (!hs || (o.hs_codes ?? []).includes(hs))
+    return (!country || o.country === country) && (!role || (role === 'for_me' ? suited?.includes(o.role) : o.role === role)) && (!hs || (o.hs_codes ?? []).includes(hs))
       && (!minTier || TIER_ORDER.indexOf(o.verification_tier) <= TIER_ORDER.indexOf(minTier))
       && (!q || text.includes(q.toLowerCase()))
   }), [orgs, agents, hsName, q, country, role, hs, minTier])
 
-  const filtersOn = !!(q || country || role || hs || minTier)
-  const clear = () => { setQ(''); setCountry(''); setRole(''); setHs(''); setMinTier('') }
+  const filtersOn = !!(q || country || role !== defaultRole || hs || minTier)
+  const clear = () => { setQ(''); setCountry(''); setRole(defaultRole); setHs(''); setMinTier('') }
 
   return (
     <section className="space-y-6">
@@ -49,7 +61,7 @@ export default function Directory() {
           <option value="">All countries</option>{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
         </select>
         <select className="input" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="">All roles</option>{Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {suited && <option value="for_me">Suited to you</option>}<option value="">All roles</option>{Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select className="input" aria-label="Commodity" value={hs} onChange={(e) => setHs(e.target.value)}>
           <option value="">All commodities</option>{commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name}</option>)}
@@ -60,13 +72,13 @@ export default function Directory() {
       </div>
 
       <div className="flex items-center justify-between text-sm text-navy/70">
-        <span>{list.length === orgs.length ? `${orgs.length} on OXL` : `${list.length} of ${orgs.length} shown`}</span>
+        <span>{list.length === orgs.length ? `${orgs.length} on OXL` : `${list.length} of ${orgs.length} shown`}{role === 'for_me' && ' · businesses you can trade with. Choose "All roles" to see everyone.'}</span>
         {filtersOn && <button className="font-medium text-terra hover:underline" onClick={clear}>Clear filters</button>}
       </div>
 
       {list.length === 0 && (
         <EmptyState title={orgs.length === 0 ? 'No businesses yet' : 'Nothing matches these filters'}
-          action={filtersOn ? <button className="btn-ghost" onClick={clear}>Clear filters</button> : null}>
+          action={filtersOn ? <button className="btn-ghost" onClick={clear}>Clear filters</button> : role === 'for_me' ? <button className="btn-ghost" onClick={() => setRole('')}>Show all roles</button> : null}>
           {orgs.length === 0 ? 'Businesses appear here once they finish setting up their profile.' : 'Try a different product, country or verification level.'}
         </EmptyState>
       )}
