@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, TIER_LABEL, ROLE_LABEL, ENTITY_LABEL } from '../supabase'
 import { DocCard } from './Documents'
 import { DemoBadge, TierBadge } from '../components/Badges'
+import { PageHeader, StatTile, EmptyState, Avatar } from '../components/Page'
 import LocationMap from '../components/LocationMap'
 import { GeoBadge, GeoFlags, GeoLinks } from '../components/LocationCard'
 
@@ -36,48 +37,75 @@ export default function Admin() {
     if (error) alert(error.message); load()
   }
 
+  const shown = orgs.filter((o) => !q || o.name.toLowerCase().includes(q.toLowerCase()))
+  const verified = orgs.filter((o) => o.verification_tier !== 'self_declared').length
+  const suspended = orgs.filter((o) => o.is_suspended).length
+
   return (
-    <div className="space-y-10">
-      <section>
-        <h2 className="text-2xl font-semibold">Documents awaiting review <span className="text-navy/40">{docs.length}</span></h2>
-        <div className="mt-4 space-y-3">
-          {docs.length === 0 && <div className="card text-sm text-navy/60">Queue is empty.</div>}
-          {docs.map((d) => (
-            <DocCard key={d.id} d={d}>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-sm">
-                <span className="mr-auto text-navy/70">{d.organisations?.name} · {d.organisations?.country}</span>
-                <button className="btn-ghost" onClick={() => view(d.storage_path)}>Open file</button>
-                {d.back_file_path && <button className="btn-ghost" onClick={() => view(d.back_file_path)}>Open back</button>}
-                <button className="btn-ghost" onClick={() => supabase.functions.invoke('extract-document', { body: { document_id: d.id } }).then(load)}>Re-run AI</button>
-                <button className="btn-ghost text-red-700" onClick={() => review(d, 'rejected')}>Reject</button>
-                <button className="btn-primary" onClick={() => review(d, 'approved')}>Approve</button>
-              </div>
-            </DocCard>
-          ))}
-        </div>
+    <div className="space-y-8">
+      <PageHeader title="Verification" subtitle="Approve the documents businesses upload and set each business's trust level. Only OXL staff can raise a level." />
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Summary">
+        <StatTile label="Documents waiting" value={docs.length} tone={docs.length ? 'warn' : 'ok'} hint={docs.length ? 'Review them below' : 'Nothing to review'} />
+        <StatTile label="Businesses" value={orgs.length} hint="Registered on OXL" />
+        <StatTile label="Checked by OXL" value={verified} tone={verified ? 'ok' : 'none'} hint={orgs.length ? `${Math.round((verified / orgs.length) * 100)}% above self-declared` : 'None yet'} />
+        <StatTile label="Suspended" value={suspended} tone={suspended ? 'bad' : 'none'} hint={suspended ? 'Hidden from the database' : 'None'} />
       </section>
-      <section>
-        <h2 className="text-2xl font-semibold">Organisations</h2>
-        <input className="input mt-3 max-w-xs" placeholder="Search organisations…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="card mt-3 overflow-x-auto p-0">
-        <table className="w-full min-w-[48rem] text-sm">
-          <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Name</th><th>Country</th><th>Role</th><th>Tier</th><th>Set tier</th><th></th></tr></thead>
-          <tbody>{orgs.filter((o) => !q || o.name.toLowerCase().includes(q.toLowerCase())).map((o) => (
-            <Fragment key={o.id}>
-            <tr className="border-t border-line">
-              <td className="px-4 py-2"><Link className="hover:underline" to={`/report/${o.id}`}>{o.name}</Link> <DemoBadge show={o.is_demo} />
-                {o.is_suspended && <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">suspended</span>}</td>
-              <td>{o.country}</td><td>{ROLE_LABEL[o.role] ?? o.role}{o.entity_type ? <span className="text-xs text-navy/50"> ({ENTITY_LABEL[o.entity_type]})</span> : ''}</td>
-              <td><TierBadge tier={o.verification_tier} /> {o.geo_status !== 'none' && <GeoBadge status={o.geo_status} />}</td>
-              <td><select className="input py-1" value="" onChange={(e) => e.target.value && setTier(o, e.target.value)}>
-                <option value="">Change…</option>{Object.entries(TIER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select></td>
-              <td className="pr-4 text-right"><button className="btn-ghost py-1" onClick={() => setOpenOrg(openOrg === o.id ? null : o.id)}>{openOrg === o.id ? 'Close' : 'Manage'}</button></td>
-            </tr>
-            {openOrg === o.id && <tr><td colSpan={6} className="bg-cream px-4 py-4"><OrgPanel o={o} onChanged={load} /></td></tr>}
-            </Fragment>
-          ))}</tbody>
-        </table>
+
+      <section className="space-y-3">
+        <h3 className="text-xl font-semibold">Documents awaiting review</h3>
+        {docs.length === 0 && <EmptyState title="All caught up">New uploads appear here as soon as a business sends them.</EmptyState>}
+        {docs.map((d) => (
+          <DocCard key={d.id} d={d}>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-sm">
+              <span className="mr-auto text-navy/70">{d.organisations?.name} · {d.organisations?.country}</span>
+              <button className="btn-ghost" onClick={() => view(d.storage_path)}>Open file</button>
+              {d.back_file_path && <button className="btn-ghost" onClick={() => view(d.back_file_path)}>Open back</button>}
+              <button className="btn-ghost" onClick={() => supabase.functions.invoke('extract-document', { body: { document_id: d.id } }).then(load)}>Re-run AI</button>
+              <button className="btn-ghost text-red-700" onClick={() => review(d, 'rejected')}>Reject</button>
+              <button className="btn-primary" onClick={() => review(d, 'approved')}>Approve</button>
+            </div>
+          </DocCard>
+        ))}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h3 className="text-xl font-semibold">Businesses <span className="text-base font-normal text-navy/60">{shown.length === orgs.length ? orgs.length : `${shown.length} of ${orgs.length}`}</span></h3>
+          <input className="input max-w-xs" type="search" placeholder="Search by name…" aria-label="Search businesses" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full min-w-[48rem] text-sm">
+            <thead><tr className="bg-cream/70 text-left text-xs font-medium text-navy/70">
+              <th className="px-4 py-2.5">Business</th><th className="px-4">Country</th><th className="px-4">Type</th><th className="px-4">Trust level</th><th className="px-4">Change level</th><th className="px-4"></th>
+            </tr></thead>
+            <tbody>
+              {shown.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-navy/70">No business matches “{q}”.</td></tr>}
+              {shown.map((o) => (
+                <Fragment key={o.id}>
+                  <tr className="border-t border-line align-middle hover:bg-cream/50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={o.name} />
+                        <div className="min-w-0">
+                          <Link className="font-medium hover:underline" to={`/report/${o.id}`}>{o.name}</Link> <DemoBadge show={o.is_demo} />
+                          {o.is_suspended && <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">suspended</span>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4">{o.country}</td>
+                    <td className="px-4">{ROLE_LABEL[o.role] ?? o.role}{o.entity_type ? <span className="block text-xs text-navy/60">{ENTITY_LABEL[o.entity_type]}</span> : ''}</td>
+                    <td className="px-4"><div className="flex flex-wrap items-center gap-1.5"><TierBadge tier={o.verification_tier} />{o.geo_status !== 'none' && <GeoBadge status={o.geo_status} />}</div></td>
+                    <td className="px-4"><select className="input py-1" aria-label={`Change trust level of ${o.name}`} value="" onChange={(e) => e.target.value && setTier(o, e.target.value)}>
+                      <option value="">Change…</option>{Object.entries(TIER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select></td>
+                    <td className="px-4 text-right"><button className="btn-ghost py-1" aria-expanded={openOrg === o.id} onClick={() => setOpenOrg(openOrg === o.id ? null : o.id)}>{openOrg === o.id ? 'Close' : 'Manage'}</button></td>
+                  </tr>
+                  {openOrg === o.id && <tr><td colSpan={6} className="border-t border-line bg-cream px-4 py-5"><OrgPanel o={o} onChanged={load} /></td></tr>}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>
