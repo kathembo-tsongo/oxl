@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { REPORT_CATEGORY, SafetyBadge } from '../components/Safety'
+import { PageHeader, StatTile, EmptyState } from '../components/Page'
 
 const SEV = { high: 'bg-red-100 text-red-800', medium: 'bg-amber-100 text-amber-800', low: 'bg-gray-100 text-navy/70' }
 const KIND = { price_far_below_market: 'Price far below the market', id_name_mismatch: 'Name on ID does not match', document_red_flags: 'Document flagged by the AI',
@@ -30,13 +31,17 @@ export default function AdminSafety() {
 
   return (
     <div className="space-y-8">
-      <div><h2 className="text-2xl font-semibold">Safety</h2>
-        <p className="text-sm text-navy/60">Automatic signals and users' reports. A safety alert is shown on the business and sent to everyone in an open deal with it; a high alert also stops new matches.</p></div>
+      <PageHeader title="Safety" subtitle="Automatic signals and users' reports. A safety alert is shown on the business and sent to everyone in an open deal with it; a high alert also stops new matches." />
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Summary">
+        <StatTile label="Open signals" value={flags.length} tone={flags.length ? 'warn' : 'ok'} hint={flags.length ? 'Review below' : 'Nothing open'} />
+        <StatTile label="Open reports" value={reports.length} tone={reports.length ? 'warn' : 'ok'} hint={reports.length ? 'From users' : 'Nothing open'} />
+        <StatTile label="Active safety alerts" value={alerts.length} tone={alerts.length ? 'bad' : 'ok'} hint={alerts.length ? 'Counterparties are told' : 'None placed'} />
+      </section>
       {msg && <p className={`text-sm ${msg.err ? 'text-red-700' : 'text-leaf'}`}>{msg.err ?? msg.ok}</p>}
 
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">Open signals <span className="text-navy/40">{flags.length}</span></h3>
-        {flags.length === 0 && <div className="card text-sm text-navy/60">No open signals.</div>}
+        {flags.length === 0 && <EmptyState title="No open signals">Automatic checks have nothing to flag right now.</EmptyState>}
         {flags.map((f) => (
           <div key={f.id} className="card space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -58,7 +63,7 @@ export default function AdminSafety() {
 
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">Reports from users <span className="text-navy/40">{reports.length}</span></h3>
-        {reports.length === 0 && <div className="card text-sm text-navy/60">No open reports.</div>}
+        {reports.length === 0 && <EmptyState title="No open reports">Problems reported by users appear here.</EmptyState>}
         {reports.map((r) => (
           <div key={r.id} className="card space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -78,7 +83,7 @@ export default function AdminSafety() {
 
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">Businesses with a safety alert <span className="text-navy/40">{alerts.length}</span></h3>
-        {alerts.length === 0 && <div className="card text-sm text-navy/60">None.</div>}
+        {alerts.length === 0 && <EmptyState title="No active alerts">An alert you place on a business appears here.</EmptyState>}
         {alerts.map((o) => (
           <div key={o.id} className="card flex flex-wrap items-center gap-3 text-sm">
             <SafetyBadge alert={o.safety_alert} /><Link className="font-medium hover:underline" to={`/report/${o.id}`}>{o.name}</Link>

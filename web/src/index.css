@@ -53,6 +53,10 @@ table.card tbody tr:hover { background: rgb(247 244 238 / 0.55); }
 .label { @apply block text-[13px] font-medium text-navy/75 mb-1; }
 }
 
+/* Table headers inside cards: a quiet band in sentence case instead of small capitals */
+.card thead { background: rgb(247 244 238 / 0.7); }
+.card thead tr { text-transform: none; letter-spacing: normal; font-weight: 500; color: rgb(28 43 74 / 0.72); }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }

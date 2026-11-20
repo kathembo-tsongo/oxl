@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { ScoreFactors, ScorePill } from '../components/Badges'
+import { PageHeader, EmptyState } from '../components/Page'
 
 const STATUS_LABEL = { new: 'New', reviewed: 'Reviewed', invited: 'Invited', claimed: 'Joined OXL', declined: 'Not a fit', opted_out: 'Opted out' }
 const COLUMNS = ['name', 'role', 'country', 'city', 'commodities', 'website', 'contact', 'source', 'source_url']
@@ -71,10 +72,7 @@ export default function AdminProspects() {
   const list = rows.filter((p) => filter === 'all' || (filter === 'active' ? ['new', 'reviewed', 'invited'].includes(p.status) : p.status === filter))
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Prospects</h2>
-        <p className="text-sm text-navy/60">Businesses found in public sources that are not yet on OXL. Visible only to OXL staff and assigned agents, and never shown as verified.</p>
-      </div>
+      <PageHeader title="Prospects" subtitle="Businesses found in public sources that are not yet on OXL. Visible only to OXL staff and assigned agents, and never shown as verified." />
       <AiSearch onFound={load} />
       <section className="card space-y-3">
         <h3 className="font-semibold">Add prospects from a spreadsheet</h3>
@@ -94,7 +92,7 @@ export default function AdminProspects() {
           <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1.5 rounded-md text-sm ${filter === k ? 'bg-navy text-white' : 'border border-line bg-white'}`}>{v}</button>))}
       </div>
       <div className="space-y-3">
-        {list.length === 0 && <div className="card text-sm text-navy/60">No prospects here.</div>}
+        {list.length === 0 && <EmptyState title="No prospects here">Add some from a spreadsheet above, or run the AI search.</EmptyState>}
         {list.map((p) => (
           <div key={p.id} className="card">
             <div className="flex flex-wrap items-center gap-3">

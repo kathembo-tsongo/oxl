@@ -3,6 +3,7 @@
 // set up two-step sign-in (an authenticator app); the list shows who has not yet.
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { PageHeader, StatTile } from '../components/Page'
 
 export default function AdminStaff() {
   const [staff, setStaff] = useState([])
@@ -38,10 +39,12 @@ export default function AdminStaff() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold">Staff</h2>
-        <p className="text-sm text-navy/70">People who can act as OXL staff: verify businesses, manage reference data and review safety reports. Admin rights work only after the person sets up two-step sign-in with an authenticator app.</p>
-      </div>
+      <PageHeader title="Staff" subtitle="People who can act as OXL staff: verify businesses, manage reference data and review safety reports. Admin rights work only after the person sets up two-step sign-in with an authenticator app." />
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Summary">
+        <StatTile label="OXL staff" value={staff.length} tone="ok" hint="Can act as admins" />
+        <StatTile label="Two-step on" value={staff.filter((s) => s.mfa_enrolled).length} tone="ok" hint="Authenticator app set up" />
+        <StatTile label="Two-step missing" value={staff.filter((s) => !s.mfa_enrolled).length} tone={staff.some((s) => !s.mfa_enrolled) ? 'warn' : 'ok'} hint={staff.some((s) => !s.mfa_enrolled) ? 'Admin rights stay locked' : 'Everyone is covered'} />
+      </section>
       {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.err ? 'bg-red-50 text-red-700' : 'bg-leaf/10 text-leaf'}`}>{msg.err ?? msg.ok}</p>}
 
       <section className="space-y-3">

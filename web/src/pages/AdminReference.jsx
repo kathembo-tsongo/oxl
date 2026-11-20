@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
+import { PageHeader } from '../components/Page'
 
 const TABS = { products: 'Products', grades: 'Grades', routes: 'Route table', locations: 'Locations', certs: 'Certificate rules', sanctions: 'Sanctions list', activities: 'Business activities', settings: 'Settings' }
 
@@ -10,10 +11,7 @@ export default function AdminReference() {
   const [tab, setTab] = useState('products')
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Reference data</h2>
-        <p className="text-sm text-navy/60">The data OXL uses to check delivery times, certificates and sanctions. Only OXL staff can change it.</p>
-      </div>
+      <PageHeader title="Reference data" subtitle="The data OXL uses to check delivery times, certificates and sanctions. Only OXL staff can change it." />
       <div className="flex flex-wrap gap-2">
         {Object.entries(TABS).map(([k, v]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-md text-sm ${tab === k ? 'bg-navy text-white' : 'border border-line bg-white'}`}>{v}</button>

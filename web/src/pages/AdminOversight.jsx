@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, TIER_LABEL, ROLE_LABEL } from '../supabase'
+import { PageHeader } from '../components/Page'
 
 const TABS = [['overview', 'Overview'], ['deals', 'Deals'], ['activity', 'Activity log']]
 const words = (s) => String(s ?? '').replace(/_/g, ' ')
@@ -9,10 +10,7 @@ export default function AdminOversight() {
   const [tab, setTab] = useState('overview')
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Oversight</h2>
-        <p className="mt-1 text-sm text-navy/60">What is happening across the platform: who is on it, what is being traded, and what OXL staff have done.</p>
-      </div>
+      <PageHeader title="Oversight" subtitle="What is happening across the platform: who is on it, what is being traded, and what OXL staff have done." />
       <div className="flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
@@ -27,24 +25,32 @@ export default function AdminOversight() {
 }
 
 function Stat({ label, value, to, warn }) {
+  const attention = warn && value > 0
   const body = (
     <div className="card h-full">
-      <div className={`text-3xl font-semibold ${warn && value > 0 ? 'text-amber-800' : ''}`}>{value ?? 0}</div>
-      <div className="mt-1 text-sm text-navy/60">{label}</div>
+      <div className="flex items-center gap-2 text-[13px] font-medium text-navy/70">
+        <span className={`h-2 w-2 rounded-full ${attention ? 'bg-gold' : 'bg-navy/25'}`} aria-hidden="true" />{label}
+      </div>
+      <div className="mt-2 font-serif text-3xl font-semibold tabular-nums">{value ?? 0}</div>
+      {to && <div className="mt-0.5 text-xs text-terra">{attention ? 'Needs attention' : 'Open'}</div>}
     </div>
   )
-  return to ? <Link to={to} className="block hover:opacity-90">{body}</Link> : body
+  return to ? <Link to={to} className="block rounded-xl transition hover:shadow-lift">{body}</Link> : body
 }
 
 function Breakdown({ title, data, label }) {
   const entries = Object.entries(data ?? {}).sort((a, b) => b[1] - a[1])
+  const max = Math.max(1, ...entries.map((e) => e[1]))
   return (
     <div className="card">
       <h3 className="font-semibold">{title}</h3>
       {entries.length === 0 && <p className="mt-2 text-sm text-navy/60">Nothing yet.</p>}
       <ul className="mt-2 space-y-1 text-sm">
         {entries.map(([k, n]) => (
-          <li key={k} className="flex justify-between gap-3"><span className="capitalize">{label(k)}</span><b>{n}</b></li>
+          <li key={k}>
+            <div className="flex justify-between gap-3"><span className="capitalize">{label(k)}</span><b className="tabular-nums">{n}</b></div>
+            <div className="mt-1 h-1.5 rounded-full bg-line"><div className="h-full rounded-full bg-navy/60" style={{ width: `${(n / max) * 100}%` }} /></div>
+          </li>
         ))}
       </ul>
     </div>
