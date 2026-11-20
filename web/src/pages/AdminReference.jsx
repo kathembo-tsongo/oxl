@@ -1,7 +1,7 @@
 // OXL staff: maintain the data matching depends on (user story O3):
 // locations, the route table, destination certificate rules, the sanctions list and the safety margin.
 import { useEffect, useMemo, useState } from 'react'
-import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL } from '../supabase'
+import { supabase, CERT_LABEL, UNIT_LABEL, CATEGORY_LABEL, certsFor } from '../supabase'
 import LocationSelect from '../components/LocationSelect'
 import LocationMap from '../components/LocationMap'
 import ProductRequests from '../components/ProductRequests'
@@ -212,6 +212,7 @@ function CertRules() {
   const [countries, setCountries] = useState([])
   const [f, setF] = useState({ country: 'KE', hs: '', cert: 'phytosanitary', mandatory: true, notes: '' })
   const [msg, setMsg] = useState(null)
+  const [showAllRules, setShowAllRules] = useState(false)
   const load = () => supabase.from('destination_requirements').select('*, commodities(name)').order('destination_country').order('hs_code').then(({ data }) => setRows(data ?? []))
   useEffect(() => {
     load()
@@ -219,8 +220,19 @@ function CertRules() {
     supabase.from('countries').select('*').order('name').then(({ data }) => setCountries(data ?? []))
   }, [])
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  // Choosing a product offers only the certificates that make sense for its category, and the list below follows the choice
+  const product = commodities.find((c) => c.hs_code === f.hs)
+  const certKeys = certsFor(product?.category).filter((k) => CERT_LABEL[k])
+  const pickProduct = (e) => {
+    const hs = e.target.value, c = commodities.find((x) => x.hs_code === hs)
+    const keys = certsFor(c?.category)
+    setF({ ...f, hs, cert: keys.includes(f.cert) ? f.cert : (keys[0] ?? f.cert) })
+  }
+  const shown = showAllRules ? rows : rows.filter((r) => r.destination_country === f.country && (!f.hs || !r.hs_code || r.hs_code === f.hs))
+  const existing = rows.find((r) => r.destination_country === f.country && (r.hs_code ?? '') === f.hs && r.certificate === f.cert)
   async function save(e) {
     e.preventDefault(); setMsg(null)
+    if (existing && !window.confirm('A rule for this destination, product and certificate already exists. Add it again?')) return
     const { error } = await supabase.from('destination_requirements').insert({ destination_country: f.country, hs_code: f.hs || null, certificate: f.cert, is_mandatory: f.mandatory, notes: f.notes || null })
     setMsg(error ? { err: error.message } : { ok: 'Rule added.' }); if (!error) load()
   }
@@ -231,17 +243,21 @@ function CertRules() {
         <h3 className="sm:col-span-4 font-semibold">Add a rule</h3>
         <p className="sm:col-span-4 -mt-2 text-xs text-navy/60">A mandatory certificate is a must-pass check: sellers without it will not be matched with buyers in that country.</p>
         <div><label className="label">Destination</label><select className="input" value={f.country} onChange={set('country')}>{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
-        <div><label className="label">Product</label><select className="input" value={f.hs} onChange={set('hs')}><option value="">All products</option>{commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name}</option>)}</select></div>
-        <div><label className="label">Certificate</label><select className="input" value={f.cert} onChange={set('cert')}>{Object.entries(CERT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label className="label">Product</label><select className="input" value={f.hs} onChange={pickProduct}><option value="">All products</option>{commodities.map((c) => <option key={c.hs_code} value={c.hs_code}>{c.name}</option>)}</select></div>
+        <div><label className="label">Certificate</label><select className="input" value={f.cert} onChange={set('cert')}>{certKeys.map((k) => <option key={k} value={k}>{CERT_LABEL[k]}</option>)}</select></div>
         <div className="flex items-end"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.mandatory} onChange={(e) => setF({ ...f, mandatory: e.target.checked })} /> Mandatory</label></div>
         <div className="sm:col-span-3"><label className="label">Notes / source</label><input className="input" value={f.notes} onChange={set('notes')} /></div>
         <div className="flex items-end"><button className="btn-primary w-full">Add rule</button></div>
-        <div className="sm:col-span-4"><Msg m={msg} /></div>
+        <div className="sm:col-span-4 flex flex-col gap-1">{existing && <span className="text-xs text-amber-700">A rule for this destination, product and certificate already exists (see below).</span>}<Msg m={msg} /></div>
       </form>
+      <p className="text-sm text-navy/70">
+        {showAllRules ? `Showing all ${rows.length} rules.` : `Showing ${shown.length} of ${rows.length} rules for ${countries.find((c) => c.code === f.country)?.name ?? f.country}${product ? `, ${product.name} and rules that cover all products` : ''}.`}{' '}
+        <button type="button" className="text-terra hover:underline" onClick={() => setShowAllRules(!showAllRules)}>{showAllRules ? 'Show only the chosen destination and product' : 'Show all rules'}</button>
+      </p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[40rem] text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Destination</th><th>Product</th><th>Certificate</th><th>Required</th><th>Notes</th><th></th></tr></thead>
-          <tbody>{rows.map((r) => (
+          <tbody>{shown.length === 0 && <tr><td colSpan={6} className="px-4 py-4 text-sm text-navy/60">No rules yet for this choice. Use the form above to add one.</td></tr>}{shown.map((r) => (
             <tr key={r.id} className="border-t border-line">
               <td className="px-4 py-2">{r.destination_country}</td><td>{r.commodities?.name ?? 'All products'}</td><td>{CERT_LABEL[r.certificate] ?? r.certificate}</td>
               <td>{r.is_mandatory ? 'Mandatory' : 'Optional'}</td><td className="max-w-[18rem] truncate text-xs text-navy/60" title={r.notes ?? ''}>{r.notes}</td>
