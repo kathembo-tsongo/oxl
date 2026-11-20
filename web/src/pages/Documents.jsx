@@ -62,6 +62,21 @@ export default function Documents({ forOrg }) {
           <div><label className="label">Role</label><input className="input" value={holder.role} onChange={(e) => setHolder({ ...holder, role: e.target.value })} placeholder="e.g. Director" /></div>
         </>}
         {IDENTITY_TYPES.includes(type) && <p className="text-xs text-navy/60">ID documents are seen only by you, your agent and OXL staff, never by lenders.</p>}
+        {IDENTITY_TYPES.includes(type) && (
+          <details open className="rounded-lg border border-line bg-cream p-3 text-xs text-navy/80">
+            <summary className="cursor-pointer text-[13px] font-medium text-navy">How to photograph your ID</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              <li><b>National ID and driving licence have two sides.</b> Upload the front in the first box and the back in the second. We cannot accept one side only.</li>
+              <li><b>Passport:</b> upload only the page with your photo and details.</li>
+              <li>Lay it flat on a plain, dark surface in good light. Keep all four corners in the picture.</li>
+              <li>Avoid glare and shadows, and keep your fingers off the text. Every word and the number must be readable.</li>
+              <li>Use a colour photo or scan, not a black and white photocopy. Do not crop or edit it.</li>
+              <li>The ID must still be valid, and the name must match the name on your profile.</li>
+              <li>JPG, PNG or PDF, up to 20 MB each.</li>
+              {type === 'representative_id' && <li>For a company or cooperative, upload one ID for each of two directors or representatives, and type their names above.</li>}
+            </ul>
+          </details>
+        )}
         <div>
           <label className="label">Front of document</label>
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
