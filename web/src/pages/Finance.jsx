@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useAuth } from '../App'
+import { PageHeader, EmptyState } from '../components/Page'
 
 export default function Finance() {
   const { org } = useAuth()
@@ -16,6 +17,8 @@ export default function Finance() {
     if (error) setErr(error.message); else { setF({ amount: '', purpose: '' }); load() }
   }
   return (
+    <div className="space-y-6">
+    <PageHeader title="Finance" subtitle="Ask financiers on OXL for trade finance. They see your request, trust level and country; your full risk report only if you share it." />
     <div className="grid gap-6 lg:grid-cols-[22rem_1fr]">
       <form onSubmit={save} className="card h-fit space-y-3">
         <h2 className="text-xl font-semibold">Request trade finance</h2>
@@ -27,15 +30,16 @@ export default function Finance() {
       </form>
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">Your requests</h2>
-        {rows.length === 0 && <div className="card text-sm text-navy/60">None yet.</div>}
+        {rows.length === 0 && <EmptyState neutral title="No requests yet">Submit your first request on the left.</EmptyState>}
         {rows.map((r) => (
           <div key={r.id} className="card flex items-center gap-4">
-            <div className="text-lg font-semibold tabular-nums">${Number(r.amount_usd).toLocaleString()}</div>
+            <div className="font-serif text-xl font-semibold tabular-nums">${Number(r.amount_usd).toLocaleString()}</div>
             <div className="flex-1 text-sm">{r.purpose}</div>
-            <div className="text-xs text-navy/50">{r.status}</div>
+            <div className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${r.status === 'open' ? 'bg-gold/25 text-gold-ink' : 'bg-navy/10 text-navy'}`}>{r.status}</div>
           </div>
         ))}
       </div>
+    </div>
     </div>
   )
 }

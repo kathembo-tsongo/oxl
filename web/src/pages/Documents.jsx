@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, DOC_LABEL, IDENTITY_TYPES, docTypesFor } from '../supabase'
 import { useAuth } from '../App'
+import { PageHeader, EmptyState } from '../components/Page'
 
 export default function Documents({ forOrg }) {
   const { org: myOrg } = useAuth()
@@ -46,6 +47,8 @@ export default function Documents({ forOrg }) {
   }
 
   return (
+    <div className="space-y-6">
+    {!forOrg && <PageHeader title="Documents" subtitle="Upload the documents that prove who you are and what you trade. OXL reads each one and a staff member reviews it before your trust level goes up." />}
     <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
       <form onSubmit={upload} className="card h-fit space-y-3">
         <h2 className="text-xl font-semibold">Upload a document</h2>
@@ -76,9 +79,10 @@ export default function Documents({ forOrg }) {
       </form>
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">{forOrg ? `Documents of ${org.name}` : 'Your documents'}</h2>
-        {docs.length === 0 && <div className="card text-sm text-navy/60">{forOrg ? 'No documents you can see. You can upload for this client; to see its documents, the client must allow it on its Profile page.' : 'No documents yet.'}</div>}
+        {docs.length === 0 && <EmptyState neutral title={forOrg ? 'No documents you can see' : 'No documents yet'}>{forOrg ? 'You can upload for this client; to see its documents, the client must allow it on its Profile page.' : 'Choose a document type on the left and upload your first file.'}</EmptyState>}
         {docs.map((d) => <DocCard key={d.id} d={d} />)}
       </div>
+    </div>
     </div>
   )
 }
@@ -90,13 +94,13 @@ const list = (v) => (Array.isArray(v) ? v.map(txt) : v ? [txt(v)] : [])
 export function DocCard({ d, children }) {
   const x = d.extracted && typeof d.extracted === 'object' ? d.extracted : null
   const flags = list(x?.red_flags)
-  const status = { pending: 'text-amber-700', approved: 'text-leaf', rejected: 'text-red-700' }[d.review_status]
+  const status = { pending: 'bg-gold/25 text-gold-ink', approved: 'bg-leaf/15 text-leaf', rejected: 'bg-coral/15 text-coral-ink' }[d.review_status]
   return (
     <div className="card">
       <div className="flex flex-wrap items-center gap-3">
         <div className="font-medium">{DOC_LABEL[d.doc_type] ?? d.doc_type}{d.holder_name ? `: ${d.holder_name}${d.holder_role ? ` (${d.holder_role})` : ''}` : ''}</div>
         <div className="text-sm text-navy/60">{d.file_name}</div>
-        <div className={`ml-auto text-xs font-medium ${status}`}>Review: {d.review_status}</div>
+        <div className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium ${status}`}>Review: {d.review_status}</div>
         <div className="text-xs text-navy/50">AI: {d.extraction_status}</div>
       </div>
       {x && IDENTITY_TYPES.includes(d.doc_type) && (

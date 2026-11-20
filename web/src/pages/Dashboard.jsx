@@ -6,6 +6,7 @@ import Listings from '../components/Listings'
 import { DemoBadge, TierBadge } from '../components/Badges'
 import AgentHome from '../components/AgentHome'
 import DashboardBanner from '../components/DashboardBanner'
+import { StatTile, EmptyState } from '../components/Page'
 
 export default function Dashboard() {
   return <><DashboardBanner /><DashboardBody /></>
@@ -103,7 +104,7 @@ function FinancierHome() {
         <h2 className="text-2xl font-semibold">Finance requests</h2>
         <p className="text-sm text-navy/60">Open requests from traders on OXL. Full risk reports are visible only where the trader has shared theirs with you.</p>
         <div className="mt-4 grid gap-3">
-          {fr.length === 0 && <div className="card text-sm text-navy/60">No open requests.</div>}
+          {fr.length === 0 && <EmptyState neutral title="No open requests">New finance requests from traders appear here.</EmptyState>}
           {fr.map((r) => (
             <div key={r.id} className="card flex flex-wrap items-center gap-4">
               <div className="text-xl font-semibold tabular-nums">${Number(r.amount_usd).toLocaleString()}</div>
@@ -122,7 +123,7 @@ function FinancierHome() {
       <section>
         <h2 className="text-2xl font-semibold">Reports shared with you</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {shared.length === 0 && <div className="card text-sm text-navy/60">None yet.</div>}
+          {shared.length === 0 && <div className="sm:col-span-2"><EmptyState neutral title="No shared reports yet">When a trader shares their risk report with you, it appears here.</EmptyState></div>}
           {shared.map((s) => (
             <Link key={s.org_id} to={`/report/${s.org_id}`} className="card hover:border-navy/40">
               <div className="font-medium">{s.organisations?.name}</div>
@@ -161,9 +162,9 @@ function PartnerHome() {
   return (
     <div className="space-y-8">
       <section className="grid gap-3 sm:grid-cols-3">
-        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Confirmed members</div><div className="mt-1 text-2xl font-semibold tabular-nums">{confirmed.length}</div></div>
-        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Verified members</div><div className="mt-1 text-2xl font-semibold tabular-nums">{confirmed.filter((m) => m.member?.verification_tier !== 'self_declared').length}</div></div>
-        <div className="card"><div className="text-xs uppercase tracking-wide text-navy/50">Waiting for confirmation</div><div className="mt-1 text-2xl font-semibold tabular-nums">{pending.length}</div></div>
+        <StatTile label="Confirmed members" value={confirmed.length} tone="ok" />
+        <StatTile label="Verified members" value={confirmed.filter((m) => m.member?.verification_tier !== 'self_declared').length} tone="ok" hint="Above self-declared" />
+        <StatTile label="Waiting for confirmation" value={pending.length} tone={pending.length ? 'warn' : 'none'} />
       </section>
       {err && <p className="text-sm text-red-700">{err}</p>}
       {pending.length > 0 && (

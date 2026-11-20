@@ -10,15 +10,17 @@ import TownInput from '../components/TownInput'
 import IdentityCard from '../components/IdentityCard'
 import LocationCard from '../components/LocationCard'
 import { SecurityCard } from '../components/Security'
+import { PageHeader, Avatar } from '../components/Page'
 
 export default function Profile() {
   const { org, refresh } = useAuth()
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-semibold">{org.name}</h2>
-        <TierBadge tier={org.verification_tier} />
-        <span className="text-sm text-navy/60">{ROLE_LABEL[org.role]}{org.entity_type ? ` · ${ENTITY_LABEL[org.entity_type]}` : ''}</span>
+      <div className="flex items-center gap-4">
+        <Avatar name={org.name} size={56} />
+        <div className="min-w-0 flex-1">
+          <PageHeader title={org.name} subtitle={`${ROLE_LABEL[org.role]}${org.entity_type ? ` · ${ENTITY_LABEL[org.entity_type]}` : ''}`} actions={<TierBadge tier={org.verification_tier} />} />
+        </div>
       </div>
       <OrgDetails />
       <IdentityCard org={org} />

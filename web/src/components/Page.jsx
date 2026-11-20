@@ -28,11 +28,13 @@ export function StatTile({ label, value, hint, tone = 'none' }) {
   )
 }
 
-export function EmptyState({ title, children, action }) {
+export function EmptyState({ title, children, action, neutral }) {
   return (
     <div className="flex flex-col items-center rounded-xl border border-dashed border-line bg-white/60 px-6 py-10 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-leaf/10 text-leaf" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      <span className={`flex h-11 w-11 items-center justify-center rounded-full ${neutral ? 'bg-navy/10 text-navy' : 'bg-leaf/10 text-leaf'}`} aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {neutral ? <path d="M22 12h-6l-2 3h-4l-2-3H2M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z" /> : <path d="M20 6 9 17l-5-5" />}
+        </svg>
       </span>
       <div className="mt-3 font-medium">{title}</div>
       {children && <p className="mt-1 max-w-sm text-sm text-navy/70">{children}</p>}
