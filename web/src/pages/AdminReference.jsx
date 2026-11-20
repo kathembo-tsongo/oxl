@@ -272,10 +272,21 @@ function CertRules() {
 
 function Sanctions() {
   const [rows, setRows] = useState([])
+  const [total, setTotal] = useState(null)
+  const [last, setLast] = useState(null)
+  const [q, setQ] = useState('')
+  const [syncing, setSyncing] = useState(false)
   const [f, setF] = useState({ name: '', country: '', list_name: 'UN Security Council Consolidated List', listed_on: '', source_url: '' })
   const [msg, setMsg] = useState(null)
-  const load = () => supabase.from('sanctions_entries').select('*').order('name').then(({ data }) => setRows(data ?? []))
-  useEffect(() => { load() }, [])
+  const [syncMsg, setSyncMsg] = useState(null)
+  const load = () => {
+    let query = supabase.from('sanctions_entries').select('*').order('name').limit(100)
+    if (q.trim()) query = query.ilike('name', `%${q.trim().replace(/[%_]/g, '')}%`)
+    query.then(({ data }) => setRows(data ?? []))
+    supabase.from('sanctions_entries').select('id', { count: 'exact', head: true }).then(({ count }) => setTotal(count ?? 0))
+    supabase.from('sanctions_sync_log').select('*').order('synced_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null))
+  }
+  useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t) }, [q]) // eslint-disable-line
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   async function save(e) {
     e.preventDefault(); setMsg(null)
@@ -283,10 +294,32 @@ function Sanctions() {
     setMsg(error ? { err: error.message } : { ok: 'Entry added.' }); if (!error) { setF({ ...f, name: '' }); load() }
   }
   async function remove(id) { await supabase.from('sanctions_entries').delete().eq('id', id); load() }
+  async function sync() {
+    setSyncing(true); setSyncMsg(null)
+    const { data, error } = await supabase.functions.invoke('sync-sanctions')
+    setSyncing(false)
+    if (error || !data?.ok) setSyncMsg({ err: data?.error ?? error?.message ?? 'The update failed. Try again in a few minutes.' })
+    else setSyncMsg({ ok: `Updated: ${data.entries.toLocaleString()} names (${data.entities.toLocaleString()} entities and ${data.individuals.toLocaleString()} individuals, plus their aliases).` })
+    load()
+  }
   return (
     <div className="space-y-4">
+      <div className="card space-y-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Official list: UN Security Council</h3>
+            <p className="text-sm text-navy/60">OXL downloads the UN consolidated list automatically every day. Names you add by hand are never changed or removed by the update.</p>
+          </div>
+          <button className="btn-primary" disabled={syncing} onClick={sync}>{syncing ? 'Updating…' : 'Update from the UN list now'}</button>
+        </div>
+        <p className="text-sm text-navy/70">
+          {total == null ? 'Loading…' : `${total.toLocaleString()} names on the list.`}{' '}
+          {last ? (last.ok ? `Last updated ${new Date(last.synced_at).toLocaleString()}.` : `The last update attempt on ${new Date(last.synced_at).toLocaleString()} failed: ${last.message}`) : 'Not updated yet.'}
+        </p>
+        <Msg m={syncMsg} />
+      </div>
       <form onSubmit={save} className="card grid gap-3 sm:grid-cols-4">
-        <h3 className="sm:col-span-4 font-semibold">Add a sanctioned name</h3>
+        <h3 className="sm:col-span-4 font-semibold">Add a sanctioned name by hand</h3>
         <p className="sm:col-span-4 -mt-2 text-xs text-navy/60">Businesses whose name matches an entry will not be matched with anyone. Copy entries from official lists only.</p>
         <div className="sm:col-span-2"><label className="label">Name</label><input className="input" required value={f.name} onChange={set('name')} /></div>
         <div><label className="label">Country code</label><input className="input" maxLength={2} value={f.country} onChange={(e) => setF({ ...f, country: e.target.value.toUpperCase() })} placeholder="e.g. GH" /></div>
@@ -297,11 +330,14 @@ function Sanctions() {
         <div className="sm:col-span-4"><Msg m={msg} /></div>
       </form>
       <div className="card text-sm">
-        {rows.length === 0 ? <p className="text-navy/60">The list is empty.</p> : rows.map((r) => (
+        <input className="input mb-3" placeholder="Search the list by name" value={q} onChange={(e) => setQ(e.target.value)} />
+        {rows.length === 0 ? <p className="text-navy/60">{q.trim() ? 'No names match your search.' : 'The list is empty.'}</p> : rows.map((r) => (
           <div key={r.id} className="flex flex-wrap items-center gap-3 border-b border-line py-2">
-            <span className="font-medium">{r.name}</span><span className="text-xs text-navy/50">{r.country ?? ''} · {r.list_name}{r.listed_on ? ` · ${r.listed_on}` : ''}</span>
-            <button className="ml-auto text-red-700 hover:underline" onClick={() => remove(r.id)}>Delete</button>
+            <span className="font-medium">{r.name}</span>
+            <span className="text-xs text-navy/50">{[r.is_alias ? 'alias' : r.entry_kind, r.external_ref, r.country, r.list_name, r.listed_on].filter(Boolean).join(' · ')}</span>
+            {!r.external_ref && <button className="ml-auto text-red-700 hover:underline" onClick={() => remove(r.id)}>Delete</button>}
           </div>))}
+        {total != null && total > rows.length && <p className="pt-3 text-xs text-navy/50">Showing the first {rows.length} of {total.toLocaleString()}. Use the search to find a name.</p>}
       </div>
     </div>
   )
