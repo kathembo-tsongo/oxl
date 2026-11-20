@@ -235,12 +235,15 @@ function Memberships() {
 // Producers on OXL authorise the trader themselves (SellersOfMyGoods); producers not on OXL are
 // recorded here with how they gave consent and the agreed commission.
 const NO_PRODUCER = { producer_name: '', producer_phone: '', producer_town: '', consent_method: 'signed_form', consent_note: '', commission_pct: '' }
+const CONSENT_ACCEPT = 'audio/*,image/*,application/pdf'
 function MyProducers() {
   const { org } = useAuth()
   const [rows, setRows] = useState([])
   const [f, setF] = useState(NO_PRODUCER)
   const [open, setOpen] = useState(false)
   const [err, setErr] = useState(null)
+  const [proof, setProof] = useState(null)
+  const [busy, setBusy] = useState(false)
   const load = () => supabase.from('seller_producers')
     .select('*, producer:organisations!seller_producers_producer_org_id_fkey(id, name, city, country, verification_tier)')
     .eq('seller_org_id', org.id).order('created_at', { ascending: false }).then(({ data }) => setRows(data ?? []))
@@ -248,11 +251,27 @@ function MyProducers() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   async function add(e) {
     e.preventDefault(); setErr(null)
+    if (proof && proof.size > 20 * 1024 * 1024) { setErr('The file is larger than 20 MB. Choose a shorter recording or a smaller file.'); return }
+    setBusy(true)
+    let path = null
+    if (proof) {
+      path = `${org.id}/consent/${crypto.randomUUID()}-${proof.name.replace(/[^\w.\-]+/g, '_')}`
+      const up = await supabase.storage.from('documents').upload(path, proof, { contentType: proof.type || undefined })
+      if (up.error) { setErr(up.error.message); setBusy(false); return }
+    }
     const { error } = await supabase.from('seller_producers').insert({
       seller_org_id: org.id, producer_name: f.producer_name, producer_phone: f.producer_phone || null, producer_town: f.producer_town || null,
       consent_method: f.consent_method, consent_note: f.consent_note || null, commission_pct: f.commission_pct === '' ? null : Number(f.commission_pct),
+      consent_file_path: path, consent_file_name: proof ? proof.name : null,
     })
-    if (error) setErr(error.message); else { setF(NO_PRODUCER); setOpen(false); load() }
+    setBusy(false)
+    if (error) { if (path) await supabase.storage.from('documents').remove([path]); setErr(error.message) }
+    else { setF(NO_PRODUCER); setProof(null); setOpen(false); load() }
+  }
+  async function openProof(r) {
+    setErr(null)
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(r.consent_file_path, 300)
+    if (error) setErr(error.message); else window.open(data.signedUrl, '_blank', 'noopener')
   }
   async function stop(id) { setErr(null); const { error } = await supabase.from('seller_producers').update({ withdrawn_at: new Date().toISOString() }).eq('id', id); if (error) setErr(error.message); load() }
   return (
@@ -271,7 +290,10 @@ function MyProducers() {
             <select className="input" value={f.consent_method} onChange={set('consent_method')}><option value="signed_form">{CONSENT_LABEL.signed_form}</option><option value="recorded_verbal">{CONSENT_LABEL.recorded_verbal}</option></select></div>
           <div><label className="label">Commission (%)</label><input className="input" type="number" step="0.1" min="0" max="50" value={f.commission_pct} onChange={set('commission_pct')} placeholder="e.g. 5" /></div>
           <div className="sm:col-span-3"><label className="label">Consent note</label><input className="input" value={f.consent_note} onChange={set('consent_note')} placeholder="e.g. Agreement signed at the farm, 10 Nov" /></div>
-          <div className="sm:col-span-3"><button className="btn-primary">Save producer</button></div>
+          <div className="sm:col-span-3"><label className="label">Proof of consent (optional)</label>
+            <input className="input" type="file" accept={CONSENT_ACCEPT} onChange={(e) => setProof(e.target.files?.[0] ?? null)} />
+            <p className="mt-1 text-xs text-navy/60">Upload the audio recording, or a photo or PDF of the signed form. Up to 20 MB. Only you and OXL staff can open it.</p></div>
+          <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save producer'}</button></div>
         </form>
       )}
       {rows.length === 0 && <p className="text-sm text-navy/60">No producers yet.</p>}
@@ -281,6 +303,7 @@ function MyProducers() {
             <div className="font-medium">{r.producer?.name ?? r.producer_name} {r.producer ? <TierBadge tier={r.producer.verification_tier} /> : <span className="text-xs font-normal text-navy/50">not on OXL</span>}</div>
             <div className="text-xs text-navy/60">{[r.producer?.city ?? r.producer_town, r.producer_phone].filter(Boolean).join(' · ')}{r.producer || r.producer_town || r.producer_phone ? ' · ' : ''}
               {CONSENT_LABEL[r.consent_method]} · commission {r.commission_pct != null ? `${Number(r.commission_pct)}%` : 'not set'}
+              {r.consent_file_path && <button type="button" className="ml-1 font-medium text-terra hover:underline" onClick={() => openProof(r)}>· Open proof of consent</button>}
               {r.withdrawn_at && <span className="ml-1 font-medium text-red-700">· ended {new Date(r.withdrawn_at).toLocaleDateString()}</span>}</div>
           </div>
           {!r.withdrawn_at && <button className="btn-ghost text-red-700" onClick={() => stop(r.id)}>Stop selling for them</button>}
