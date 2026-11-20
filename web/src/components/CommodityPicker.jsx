@@ -55,17 +55,20 @@ export default function CommodityPicker({ commodities, value, onChange }) {
           {shown.length === 0 && <li className="px-3 py-2 text-sm text-navy/60">No product found. Use "Can't find your product?" below to ask OXL to add it.</li>}
         </ul>
       )}
-      <RequestProduct suggested={q} />
+      <RequestProduct suggested={q} onOpen={() => setOpen(false)} />
     </div>
   )
 }
 
-function RequestProduct({ suggested }) {
+function RequestProduct({ suggested, onOpen }) {
   const [show, setShow] = useState(false)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [touched, setTouched] = useState(false)
+  // Until the person types their own name, follow what they typed in the search box
+  useEffect(() => { if (show && !touched) setName(suggested.trim()) }, [suggested, show, touched])
 
   async function send() {
     setBusy(true); setMsg(null)
@@ -80,11 +83,11 @@ function RequestProduct({ suggested }) {
     <div className="mt-2 text-sm">
       {msg?.ok && <p className="rounded-lg bg-leaf/10 px-3 py-2 text-leaf">{msg.ok}</p>}
       {!show ? (
-        <button type="button" className="text-terra hover:underline" onClick={() => { setName(suggested.trim()); setShow(true); setMsg(null) }}>Can't find your product? Ask OXL to add it</button>
+        <button type="button" className="text-terra hover:underline" onClick={() => { setTouched(false); setShow(true); setMsg(null); onOpen?.() }}>Can't find your product? Ask OXL to add it</button>
       ) : (
-        <div className="space-y-2 rounded-lg border border-line bg-white p-3">
+        <div className="space-y-2 rounded-lg border border-line bg-white p-3" onFocus={() => onOpen?.()}>
           <div><label className="label" htmlFor="rp-name">Product name</label>
-            <input id="rp-name" className="input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (name.trim().length >= 2 && !busy) send() } }} placeholder="e.g. Cashew kernels" /></div>
+            <input id="rp-name" className="input" value={name} maxLength={120} onChange={(e) => { setTouched(true); setName(e.target.value) }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (name.trim().length >= 2 && !busy) send() } }} placeholder="e.g. Cashew kernels" /></div>
           <div><label className="label" htmlFor="rp-note">Anything that helps us (optional)</label>
             <input id="rp-note" className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="e.g. grade, form, how you sell it" /></div>
           {msg?.err && <p className="text-red-700">{msg.err}</p>}
