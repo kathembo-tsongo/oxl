@@ -60,7 +60,7 @@ export default function Documents({ forOrg }) {
 
   return (
     <div className="space-y-6">
-    {!forOrg && <PageHeader title="Documents" subtitle="Upload the documents that prove who you are and what you trade. OXL reads each one and a staff member reviews it before your trust level goes up." />}
+    {!forOrg && <PageHeader title="Documents" subtitle={`Upload the documents that prove ${['financier', 'partner'].includes(org.role) ? (org.role === 'financier' ? 'who you are and that you are licensed to lend' : 'who you are and who you represent') : org.role === 'agent' ? 'who you are and that you may act as an agent' : 'who you are and what you trade'}. OXL reads each one and a staff member reviews it before your trust level goes up.`} />}
     <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
       <form onSubmit={upload} className="card h-fit space-y-3">
         <h2 className="text-xl font-semibold">Upload a document</h2>
