@@ -403,7 +403,7 @@ function parseCsv(text) {
 function BusinessActivities() {
   const [rows, setRows] = useState([])
   const [countries, setCountries] = useState([])
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState('KE') // same country as the load form; '' = every row, 'all' = the every-country ISIC list
   const [imp, setImp] = useState({ country: 'KE', scheme: '', parsed: null })
   const [msg, setMsg] = useState(null)
   const load = () => {
@@ -439,7 +439,7 @@ function BusinessActivities() {
         <h3 className="sm:col-span-4 font-semibold">Load a country's list</h3>
         <p className="sm:col-span-4 -mt-2 text-xs text-navy/60">Upload a CSV with the columns <code>code, name, parent_code</code> (e.g. Kenya's KSIC or Ghana's GSIC from the national statistics office). Loading the same list again updates names and adds new codes. Businesses in that country then see it first when choosing their activity; the UN ISIC list stays available everywhere.</p>
         <div><label className="label">Country</label>
-          <select className="input" value={imp.country} onChange={(e) => setImp({ ...imp, country: e.target.value })}>
+          <select className="input" value={imp.country} onChange={(e) => { setImp({ ...imp, country: e.target.value }); setFilter(e.target.value || 'all') }}>
             <option value="">Every country</option>{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select></div>
         <div><label className="label">Classification name</label><input className="input" required value={imp.scheme} onChange={(e) => setImp({ ...imp, scheme: e.target.value })} placeholder="e.g. KSIC Rev.1" /></div>
         <div className="sm:col-span-2"><label className="label">CSV file</label><input type="file" accept=".csv,text/csv" className="text-sm" onChange={(e) => e.target.files?.[0] && readFile(e.target.files[0])} /></div>
@@ -449,9 +449,10 @@ function BusinessActivities() {
       <div className="card overflow-x-auto p-0">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
           <b className="mr-auto">Activities</b>
-          <select className="input max-w-[14rem] py-1" value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="">All</option><option value="all">Every country (ISIC)</option>{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select>
+          <select className="input max-w-[14rem] py-1" value={filter} onChange={(e) => { const v = e.target.value; setFilter(v); if (v) setImp((x) => ({ ...x, country: v === 'all' ? '' : v })) }}>
+            <option value="">All countries</option><option value="all">Every country (ISIC)</option>{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select>
         </div>
+        {filter && filter !== 'all' && <p className="px-4 pb-2 text-xs text-navy/60">{rows.length ? `${rows.length} activities in this country's own list.` : 'No national list loaded for this country yet.'} Businesses here also see the UN ISIC list ("Every country").</p>}
         <table className="w-full min-w-[40rem] text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-wide text-navy/50"><th className="px-4 py-2">Code</th><th>Name</th><th>Classification</th><th>Country</th><th></th></tr></thead>
           <tbody>{rows.slice(0, 500).map((r) => (
@@ -460,7 +461,7 @@ function BusinessActivities() {
               <td className="pr-4 text-right"><button className="text-xs text-navy/60" onClick={() => toggle(r)}>{r.is_active ? 'Hide' : 'Show'}</button></td>
             </tr>))}</tbody>
         </table>
-        {rows.length > 500 && <p className="px-4 py-2 text-xs text-navy/60">Showing the first 500 of {rows.length}. Filter by country to see more.</p>}
+        {rows.length > 500 && <p className="px-4 py-2 text-xs text-navy/60">Showing the first 500 of {rows.length}. Pick one country to see only its list.</p>}
       </div>
     </div>
   )
