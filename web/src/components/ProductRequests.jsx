@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { EmptyState } from './Page'
 
+const FORM = { raw: 'Raw or fresh', processed: 'Processed', packaged: 'Packaged for sale' }
+const UNIT = { kg: 'kilograms', tonne: 'tonnes', bag: 'bags', piece: 'pieces', litre: 'litres' }
 const day = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
 export default function ProductRequests() {
@@ -34,6 +36,11 @@ export default function ProductRequests() {
             <span className="text-sm text-navy/70">{who(r)}{r.org_name && r.requester_email ? ` · ${r.requester_email}` : ''}</span>
             <span className="ml-auto text-xs text-navy/60">{day(r.created_at)}</span>
           </div>
+          {(r.other_names || r.form || r.sold_by) && (
+            <p className="text-sm text-navy/80">
+              {[r.other_names && `Also called: ${r.other_names}`, r.form && FORM[r.form], r.sold_by && `Sold by ${UNIT[r.sold_by]}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
           {r.note && <p className="text-sm">{r.note}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <input className="input min-w-[14rem] flex-1" placeholder="Note to the requester (optional)" value={notes[r.id] ?? ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />

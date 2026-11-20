@@ -60,9 +60,30 @@ export default function CommodityPicker({ commodities, value, onChange }) {
   )
 }
 
+const FORMS = [['raw', 'Raw or fresh'], ['processed', 'Processed'], ['packaged', 'Packaged for sale']]
+const UNITS = [['kg', 'Kilograms'], ['tonne', 'Tonnes'], ['bag', 'Bags'], ['piece', 'Pieces'], ['litre', 'Litres']]
+
+// A row of tap-to-choose options; tapping the chosen one again clears it
+function Choice({ label, options, value, onChange }) {
+  return (
+    <div role="group" aria-label={label}>
+      <div className="label">{label}</div>
+      <div className="flex flex-wrap gap-2">
+        {options.map(([k, v]) => (
+          <button type="button" key={k} aria-pressed={value === k} onClick={() => onChange(value === k ? '' : k)}
+            className={`rounded-full border px-3 py-1 text-sm ${value === k ? 'border-navy bg-navy text-white' : 'border-line bg-white hover:bg-cream'}`}>{v}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function RequestProduct({ suggested, onOpen }) {
   const [show, setShow] = useState(false)
   const [name, setName] = useState('')
+  const [other, setOther] = useState('')
+  const [form, setForm] = useState('')
+  const [soldBy, setSoldBy] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
@@ -72,11 +93,11 @@ function RequestProduct({ suggested, onOpen }) {
 
   async function send() {
     setBusy(true); setMsg(null)
-    const { error } = await supabase.rpc('submit_product_request', { p_name: name, p_note: note || null })
+    const { error } = await supabase.rpc('submit_product_request', { p_name: name, p_note: note || null, p_form: form || null, p_sold_by: soldBy || null, p_other_names: other || null })
     setBusy(false)
     if (error) { setMsg({ err: error.message }); return }
     setMsg({ ok: 'Sent. OXL staff will add it and tell you. For now, pick the closest product and describe yours in your profile.' })
-    setName(''); setNote(''); setShow(false)
+    setName(''); setOther(''); setForm(''); setSoldBy(''); setNote(''); setTouched(false); setShow(false)
   }
 
   return (
@@ -85,11 +106,15 @@ function RequestProduct({ suggested, onOpen }) {
       {!show ? (
         <button type="button" className="text-terra hover:underline" onClick={() => { setTouched(false); setShow(true); setMsg(null); onOpen?.() }}>Can't find your product? Ask OXL to add it</button>
       ) : (
-        <div className="space-y-2 rounded-lg border border-line bg-white p-3" onFocus={() => onOpen?.()}>
+        <div className="space-y-3 rounded-lg border border-line bg-white p-3" onFocus={() => onOpen?.()}>
           <div><label className="label" htmlFor="rp-name">Product name</label>
-            <input id="rp-name" className="input" value={name} maxLength={120} onChange={(e) => { setTouched(true); setName(e.target.value) }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (name.trim().length >= 2 && !busy) send() } }} placeholder="e.g. Cashew kernels" /></div>
-          <div><label className="label" htmlFor="rp-note">Anything that helps us (optional)</label>
-            <input id="rp-note" className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="e.g. grade, form, how you sell it" /></div>
+            <input id="rp-name" className="input" value={name} maxLength={120} onChange={(e) => { setTouched(true); setName(e.target.value) }} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} placeholder="e.g. Cashew kernels" /></div>
+          <div><label className="label" htmlFor="rp-other">Other names for it (optional)</label>
+            <input id="rp-other" className="input" value={other} maxLength={200} onChange={(e) => setOther(e.target.value)} placeholder="e.g. sukuma wiki, kale" /></div>
+          <Choice label="Is it raw or processed?" options={FORMS} value={form} onChange={setForm} />
+          <Choice label="How do you sell it?" options={UNITS} value={soldBy} onChange={setSoldBy} />
+          <div><label className="label" htmlFor="rp-note">Describe it in one sentence (optional)</label>
+            <input id="rp-note" className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="What it is and what it is used for. You can paste a link to a photo." /></div>
           {msg?.err && <p className="text-red-700">{msg.err}</p>}
           <div className="flex gap-2">
             <button type="button" className="btn-primary" disabled={busy || name.trim().length < 2} onClick={send}>{busy ? 'Sending…' : 'Send request'}</button>
