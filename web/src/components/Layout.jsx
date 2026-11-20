@@ -4,7 +4,6 @@ import { useAuth } from '../App'
 import { supabase, ROLE_LABEL } from '../supabase'
 import { TierBadge } from './Badges'
 import { useInstallPrompt } from '../pwa'
-import { LogoMark } from './Logo'
 
 export default function Layout({ children }) {
   const { org, isAdmin } = useAuth()
@@ -25,19 +24,18 @@ export default function Layout({ children }) {
       <header className="bg-navy text-white">
         <div className="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 mr-4">
-            <LogoMark size={24} variant="dark" />
+            <svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4 28 16 16 28 4 16z" fill="#A3472A" /></svg>
             <span className="font-serif text-lg font-semibold">OXL</span>
           </div>
           <nav className="flex flex-wrap gap-1">
             {org && <NavLink to="/" end className={link}>Dashboard</NavLink>}
-            <NavLink to="/database" className={link}>Database</NavLink>
+            <NavLink to="/directory" className={link}>Database</NavLink>
             {org && <NavLink to="/documents" className={link}>Documents</NavLink>}
             {trader && <NavLink to="/finance" className={link}>Finance</NavLink>}
             {org && <NavLink to="/profile" className={link}>Profile</NavLink>}
             {isAdmin && <NavLink to="/admin" end className={link}>Verification</NavLink>}
             {isAdmin && <NavLink to="/admin/reference" className={link}>Reference data</NavLink>}
             {isAdmin && <NavLink to="/admin/prospects" className={link}>Prospects</NavLink>}
-            {isAdmin && <NavLink to="/admin/oversight" className={link}>Oversight</NavLink>}
             {isAdmin && <NavLink to="/admin/safety" className={link}>Safety</NavLink>}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
@@ -56,7 +54,7 @@ export default function Layout({ children }) {
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-navy/50">
-        OXL Trade Facilitation Platform · Kenya and Ghana
+        OXL Trade Facilitation Platform · MVP prototype · Kenya–Ghana pilot. Organisations marked “demo” are fictional.
       </footer>
     </div>
   )
