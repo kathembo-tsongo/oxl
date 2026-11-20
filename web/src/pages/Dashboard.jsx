@@ -5,8 +5,13 @@ import { supabase, ROLE_LABEL } from '../supabase'
 import Listings from '../components/Listings'
 import { DemoBadge, TierBadge } from '../components/Badges'
 import AgentHome from '../components/AgentHome'
+import DashboardBanner from '../components/DashboardBanner'
 
 export default function Dashboard() {
+  return <><DashboardBanner /><DashboardBody /></>
+}
+
+function DashboardBody() {
   const { org } = useAuth()
   if (org.role === 'agent') return <AgentHome />
   if (org.role === 'exporter') return <><NextStep /><Listings kind="offer" /></>
