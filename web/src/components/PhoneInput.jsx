@@ -11,6 +11,28 @@ export const DIAL = {
 }
 const BY_LENGTH = Object.entries(DIAL).sort((a, b) => b[1].length - a[1].length)
 
+// Usual length of the number after the dial code, without the leading 0. Kenya and Ghana are exact;
+// other countries allow the range their numbering plans use. Anything not listed allows 7 to 11 digits.
+const LEN = {
+  KE: [9, 9], GH: [9, 9], NG: [8, 10], UG: [9, 9], TZ: [9, 9], RW: [9, 9], ET: [9, 9], ZA: [9, 9], EG: [8, 10], MA: [9, 9], DZ: [8, 9],
+  TN: [8, 8], SN: [9, 9], CI: [8, 10], CM: [8, 9], ZM: [9, 9], ZW: [7, 10], MZ: [8, 9], MW: [7, 9], BW: [7, 8], NA: [7, 9], AO: [9, 9],
+  SD: [9, 9], SS: [9, 9], BF: [8, 8], ML: [8, 8], NE: [8, 8], TG: [8, 8], BJ: [8, 10], DJ: [8, 8], GA: [7, 9], CG: [9, 9], CD: [9, 9],
+  TD: [8, 8], CF: [8, 8], GQ: [9, 9], ER: [7, 7], SZ: [8, 8], LS: [8, 8], MG: [9, 9], MU: [7, 8], MR: [8, 8], GM: [7, 7], GN: [8, 9],
+  SL: [8, 8], BI: [8, 8], SO: [7, 9], LY: [9, 9],
+}
+const range = (code) => LEN[code] ?? [7, 11]
+
+// True when "+<dial code><number>" has a real dial code and the right number of digits for that country.
+export function phoneIsValid(full) {
+  if (!full || !/^\+\d+$/.test(full)) return false
+  const digits = full.slice(1)
+  const hit = BY_LENGTH.find(([, d]) => digits.startsWith(d))
+  if (!hit) return false
+  const n = digits.length - hit[1].length
+  const [lo, hi] = range(hit[0])
+  return n >= lo && n <= hi
+}
+
 // Phone number with a flag and dial code. `country` sets the default code; `onChange` receives e.g. "+233241234567" (or "").
 export default function PhoneInput({ id, country, countries = [], value, onChange }) {
   const [dc, setDc] = useState(DIAL[country] ? country : 'KE')
@@ -36,6 +58,8 @@ export default function PhoneInput({ id, country, countries = [], value, onChang
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close) }
   }, [open])
 
+  const [lo, hi] = range(dc)
+  const valid = num.length >= lo && num.length <= hi
   const names = useMemo(() => Object.fromEntries(countries.map((c) => [c.code, c.name])), [countries])
   const list = useMemo(() => {
     const s = q.trim().toLowerCase().replace(/^\+/, '')
@@ -50,9 +74,10 @@ export default function PhoneInput({ id, country, countries = [], value, onChang
     if (t.startsWith('+')) {
       const digits = t.replace(/\D/g, '')
       const hit = BY_LENGTH.find(([, d]) => digits.startsWith(d))
-      if (hit) { setDc(hit[0]); setTouched(true); setNum(digits.slice(hit[1].length).replace(/^0+/, '')); return }
+      if (hit) { setDc(hit[0]); setTouched(true); setNum(digits.slice(hit[1].length).replace(/^0+/, '').slice(0, range(hit[0])[1])); return }
     }
-    setNum(t.replace(/\D/g, '').replace(/^0+/, ''))
+    // Letters and symbols are dropped, a leading 0 is removed, and the number stops at the longest length for this country
+    setNum(t.replace(/\D/g, '').replace(/^0+/, '').slice(0, range(dc)[1]))
   }
 
   return (
@@ -61,7 +86,7 @@ export default function PhoneInput({ id, country, countries = [], value, onChang
         <button type="button" className="input flex w-[7.5rem] shrink-0 items-center gap-1.5 text-left" aria-label="Country dial code" aria-expanded={open} onClick={() => setOpen(!open)}>
           <Flag code={dc} /><span className="flex-1 text-sm">+{DIAL[dc]}</span><span className="text-xs text-navy/50">▾</span>
         </button>
-        <input id={id} className="input min-w-0 flex-1" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="e.g. 24 123 4567"
+        <input id={id} className="input min-w-0 flex-1" type="tel" inputMode="numeric" autoComplete="tel-national" aria-invalid={num ? !valid : undefined} placeholder="e.g. 24 123 4567"
           value={num} onChange={(e) => typed(e.target.value)} />
       </div>
       {open && (
@@ -80,7 +105,9 @@ export default function PhoneInput({ id, country, countries = [], value, onChang
           </ul>
         </div>
       )}
-      {num && <p className="mt-1 text-xs text-navy/50">Saved as +{DIAL[dc]}{num}</p>}
+      {num && (valid
+        ? <p className="mt-1 text-xs text-leaf">Saved as +{DIAL[dc]}{num}</p>
+        : <p className="mt-1 text-xs text-terra" role="alert">{names[dc] ?? dc} numbers have {lo === hi ? `${lo} digits` : `${lo} to ${hi} digits`} after +{DIAL[dc]}{num.length < lo ? ` (you have ${num.length})` : ''}.</p>)}
     </div>
   )
 }
